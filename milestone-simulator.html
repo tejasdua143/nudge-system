@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Milestone Simulator — Nudge System</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --text-dim: #484f58;
+    --blue: #58a6ff;
+    --purple: #a78bfa;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #db6d28;
+    --cyan: #39d2c0;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 32px;
+  }
+
+  /* Header */
+  .header { max-width: 1400px; margin: 0 auto 20px; }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .header p { font-size: 12px; color: var(--text-muted); line-height: 1.6; max-width: 800px; }
+
+  /* Layout */
+  .layout {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  /* Left column */
+  .left-col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* User context */
+  .user-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .user-row:last-child { border-bottom: none; }
+  .user-label { font-size: 11px; color: var(--text-dim); }
+  .user-value { font-size: 12px; font-weight: 500; }
+  .user-value.highlight { color: var(--purple); }
+  .reshuffle-btn {
+    padding: 5px 14px;
+    background: rgba(88,166,255,0.1);
+    border: 1px solid rgba(88,166,255,0.2);
+    border-radius: 6px;
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    width: 100%;
+  }
+  .reshuffle-btn:hover { background: rgba(88,166,255,0.15); }
+
+  /* Actions */
+  .action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .action-btn {
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+  }
+  .action-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); border-color: var(--text-dim); }
+  .action-btn.done {
+    background: rgba(63,185,80,0.06);
+    border-color: rgba(63,185,80,0.2);
+    color: var(--green);
+  }
+
+  /* Active signals */
+  .signal-list { display: flex; flex-direction: column; gap: 4px; }
+  .signal-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+  .signal-row.active {
+    background: rgba(139,92,246,0.08);
+    border: 1px solid rgba(139,92,246,0.15);
+  }
+  .signal-row.inactive {
+    opacity: 0.3;
+  }
+  .signal-name { color: var(--text-muted); }
+  .signal-weight { font-weight: 700; color: var(--purple); font-size: 10px; }
+
+  /* Right column */
+  .right-col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Guardrail bar */
+  .guardrail-bar {
+    display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+  }
+  .gr-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text-muted);
+  }
+  .gr-value {
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.05);
+  }
+  .gr-value.ok { color: var(--green); }
+  .gr-value.warn { color: var(--yellow); }
+  .gr-value.blocked { color: var(--red); }
+
+  /* Score matrix */
+  .matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .matrix-table th {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .matrix-table td {
+    padding: 10px 12px;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: all 0.3s;
+  }
+  .matrix-table tr.qualified {
+    background: rgba(63,185,80,0.06);
+  }
+  .matrix-table tr.top-pick {
+    background: rgba(139,92,246,0.08);
+  }
+  .feature-name { font-weight: 600; }
+  .score-bar-cell { width: 200px; }
+  .score-bar-wrap {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .score-bar-bg {
+    flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; position: relative;
+  }
+  .score-bar-fill {
+    height: 100%; border-radius: 3px; transition: width 0.4s ease, background 0.3s;
+    background: var(--text-dim);
+  }
+  .score-bar-fill.low { background: var(--text-dim); }
+  .score-bar-fill.mid { background: var(--yellow); }
+  .score-bar-fill.high { background: var(--green); }
+  .score-bar-fill.top { background: var(--purple); }
+  .score-num {
+    font-size: 13px; font-weight: 700; min-width: 32px; text-align: right;
+  }
+  .score-num.below { color: var(--text-dim); }
+  .score-num.near { color: var(--yellow); }
+  .score-num.above { color: var(--green); }
+  .score-num.top { color: var(--purple); }
+  .threshold-line {
+    position: absolute;
+    left: 0; top: -2px; bottom: -2px;
+    width: 2px;
+    background: var(--red);
+    opacity: 0.6;
+  }
+  .direct-val, .universal-val {
+    font-size: 11px; color: var(--text-dim); min-width: 28px; text-align: center;
+  }
+  .badge {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .badge.fire { background: rgba(139,92,246,0.15); color: var(--purple); }
+  .badge.queued { background: rgba(210,153,34,0.1); color: var(--yellow); }
+
+  /* Milestone feed */
+  .milestone-feed {
+    max-width: 1400px;
+    margin: 20px auto 0;
+  }
+  .milestone-item {
+    background: var(--surface);
+    border: 1px solid rgba(139,92,246,0.3);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .milestone-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: rgba(139,92,246,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .milestone-content { flex: 1; }
+  .milestone-feature {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--purple); margin-bottom: 4px;
+  }
+  .milestone-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .milestone-body { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .milestone-meta {
+    font-size: 10px; color: var(--text-dim); margin-top: 8px;
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .milestone-meta span { display: flex; align-items: center; gap: 4px; }
+  .milestone-signals {
+    display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;
+  }
+  .milestone-signal-tag {
+    font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 3px;
+    background: rgba(88,166,255,0.08); color: var(--blue);
+  }
+  .milestone-signal-tag.universal {
+    background: rgba(210,153,34,0.08); color: var(--yellow);
+  }
+
+  .empty-feed {
+    text-align: center; padding: 40px; color: var(--text-dim); font-size: 13px;
+  }
+
+  /* Cooldown overlay */
+  .cooldown-active .action-btn { opacity: 0.5; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Milestone Simulator</h1>
+  <p>Perform user actions on the left. Watch feature scores update in real-time on the right. When a feature score crosses 10, a milestone nudge fires — if guardrails allow it.</p>
+</div>
+
+<div class="layout">
+  <div class="left-col">
+    <div class="panel">
+      <div class="panel-title">User Context</div>
+      <div id="user-context"></div>
+      <button class="reshuffle-btn" onclick="resetSimulator()">New User</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">User Actions</div>
+      <div class="action-grid" id="action-grid"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Active Signals</div>
+      <div class="signal-list" id="signal-list"></div>
+    </div>
+  </div>
+
+  <div class="right-col">
+    <div class="panel">
+      <div class="panel-title">Guardrails</div>
+      <div class="guardrail-bar" id="guardrail-bar"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Feature Scores (threshold: 10)</div>
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Direct</th>
+            <th>Universal</th>
+            <th style="width:200px">Score</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="matrix-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="milestone-feed" id="milestone-feed">
+  <div class="panel">
+    <div class="panel-title">Milestone Feed</div>
+    <div id="feed-content">
+      <div class="empty-feed">Perform actions to trigger milestones. Scores update in real-time.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──
+const ROLES = [
+  { label: 'Leadership', archetype: 'Founder' },
+  { label: 'Sales', archetype: 'Sales' },
+  { label: 'Marketing', archetype: 'Sales' },
+  { label: 'Product', archetype: 'Corporate' },
+  { label: 'Design', archetype: 'Creative' },
+  { label: 'Engineering', archetype: 'Corporate' },
+  { label: 'Data Analytics', archetype: 'Corporate' },
+  { label: 'Consulting', archetype: 'Corporate' },
+  { label: 'Operations', archetype: 'Corporate' },
+  { label: 'Finance', archetype: 'Corporate' },
+  { label: 'Creator', archetype: 'Creative' },
+  { label: 'Teacher', archetype: 'Educator' },
+  { label: 'Student', archetype: 'Student' }
+];
+
+const AUDIENCES = {
+  Founder: ['Investors', 'VCs', 'Board members', 'Angel investors'],
+  Sales: ['Enterprise clients', 'Prospects', 'C-suite buyers'],
+  Corporate: ['Leadership team', 'Executives', 'Stakeholders', 'Cross-functional team'],
+  Creative: ['Potential clients', 'Recruiters', 'Art directors'],
+  Educator: ['Students', 'Corporate trainees', 'Workshop attendees'],
+  Student: ['Professor', 'Panel judges', 'Classmates']
+};
+
+const TOPICS = {
+  Founder: ['Series A pitch for fintech startup', 'Seed round deck for healthtech', 'Product demo for enterprise AI tool'],
+  Sales: ['Enterprise SaaS proposal for Fortune 500', 'Partnership pitch to retail chain', 'ROI case study for CFO'],
+  Corporate: ['Q1 business review', 'Product roadmap for H2', 'Team restructuring proposal', 'OKR review and planning'],
+  Creative: ['Design portfolio for senior role', 'Agency credentials deck', 'Brand identity presentation'],
+  Educator: ['Introduction to machine learning', 'Data visualization workshop', 'Research methodology lecture'],
+  Student: ['Final thesis defense', 'Startup pitch for entrepreneurship class', 'Capstone project presentation']
+};
+
+const FEATURES = [
+  { id: 'ai-edit', name: 'AI Edit', icon: '✏️', verb: 'Run AI Edit', does: 'fixes phrasing, spacing, and layout across your slides', result: 'cleaner, more consistent slides' },
+  { id: 'ai-enhance', name: 'AI Enhance', icon: '✨', verb: 'Run AI Enhance', does: 'restructures slides for better visual hierarchy and narrative flow', result: 'a deck that reads as well as it looks' },
+  { id: 'brand-colors', name: 'Brand Colors', icon: '🎨', verb: 'Apply brand colors', does: 'replaces default colors with your brand palette on every slide', result: 'a deck that looks like yours, not a template' },
+  { id: 'rm-watermark', name: 'Remove Watermark', icon: '🏷️', verb: 'Remove the watermark', does: 'removes the Presentations.AI badge from all slides', result: 'a clean deck with only your name on it' },
+  { id: 'pro-templates', name: 'Pro Templates', icon: '📐', verb: 'Use a Pro template', does: 'gives you professionally designed slide layouts', result: 'a stronger starting structure' },
+  { id: 'pdf-export', name: 'PDF Export', icon: '📄', verb: 'Export as PDF', does: 'downloads your deck as a static PDF that preserves layout', result: 'a portable file to email or print' },
+  { id: 'pptx-export', name: 'PPTX Export', icon: '📊', verb: 'Export as PPTX', does: 'downloads your deck as an editable PowerPoint file', result: 'a file that works offline on any device' },
+  { id: 'share-clean', name: 'Share Clean', icon: '🔗', verb: 'Share without watermark', does: 'generates a share link without the Presentations.AI badge', result: 'a clean link where only your content shows' },
+  { id: 'invite-collab', name: 'Invite Collab', icon: '👥', verb: 'Invite a collaborator', does: 'lets others view, comment, and edit your deck in real time', result: 'a second pair of eyes before sending' },
+  { id: 'analytics', name: 'Viewer Analytics', icon: '📈', verb: 'Turn on analytics', does: 'tracks who opened your deck and which slides they viewed', result: 'data on exactly how your audience engaged' },
+];
+
+// ── ACTIONS ──
+const ACTIONS = [
+  { id: 'edit-slide', label: 'Edit a slide', signals: ['manual-edit'] },
+  { id: 'edit-3x', label: 'Re-edit same slide 3x', signals: ['manual-edit', 're-edit-3x'] },
+  { id: 'edit-5plus', label: 'Make 5+ edits', signals: ['manual-edit', 'edits-5plus'] },
+  { id: 'add-chart', label: 'Add a chart/graph', signals: ['data-content'] },
+  { id: 'play-slideshow', label: 'Play slideshow', signals: ['slideshow'] },
+  { id: 'click-share', label: 'Click share', signals: ['share-clicked'] },
+  { id: 'edit-after-preview', label: 'Edit after preview', signals: ['slideshow-then-edit', 'manual-edit'] },
+  { id: 'start-new-deck', label: 'Start 2nd deck', signals: ['multi-deck', 'new-deck-session2'] },
+  { id: 'format-edits', label: 'Formatting edits (spacing, alignment)', signals: ['format-edits', 'manual-edit'] },
+  { id: 'time-15', label: 'Spend 15+ min', signals: ['time-15'] },
+  { id: 'time-20', label: 'Spend 20+ min', signals: ['time-20', 'time-15'] },
+  { id: 'gen-15-slides', label: 'Generate 15+ slides', signals: ['slides-15plus'] },
+  { id: 'mention-brand', label: 'Mention brand/company in prompt', signals: ['brand-mention'] },
+  { id: 'mention-team', label: 'Use "we/our/team" in prompt', signals: ['team-language'] },
+  { id: 'mention-metrics', label: 'Use data/metrics in prompt', signals: ['data-content'] },
+  { id: 'visit-pricing', label: 'Visit pricing page', signals: ['pricing-visit'] },
+  { id: 'started-blank', label: 'Start from blank (no template)', signals: ['started-blank'] },
+  { id: 'deck-complete', label: 'Complete deck (AI create done)', signals: ['deck-edited'] },
+];
+
+// ── STATE ──
+let user = {};
+let activeSignals = new Set();
+let milestonesThisSession = 0;
+let featuresShownThisSession = new Set();
+let lastMilestoneTime = 0;
+let milestoneLog = [];
+let decayTimers = {};
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function generateUser() {
+  const role = pick(ROLES);
+  const arch = role.archetype;
+  const credits = pick([100, 85, 72, 55, 42, 30, 18, 8, 0]);
+  const sessionNum = pick([1, 1, 1, 2, 2, 3]);
+  const boughtExport = pick([false, false, false, false, true]);
+  const dismissals = pick([0, 0, 0, 1, 2]);
+
+  user = {
+    name: pick(['Raj', 'Maria', 'Alex', 'Priya', 'James', 'Sofia', 'Chen', 'Fatima', 'David', 'Anya']),
+    role: role.label,
+    archetype: arch,
+    audience: pick(AUDIENCES[arch] || AUDIENCES['Corporate']),
+    topic: pick(TOPICS[arch] || TOPICS['Corporate']),
+    credits,
+    sessionNum,
+    boughtExport,
+    dismissals,
+  };
+
+  // Set initial signals from user context
+  activeSignals = new Set();
+
+  // Role-based signals
+  if (['Sales', 'Leadership'].includes(user.role)) activeSignals.add('role-founder-sales');
+  if (['Marketing', 'Design'].includes(user.role)) activeSignals.add('role-marketing-design');
+  if (['Teacher'].includes(user.role)) activeSignals.add('role-educator');
+  if (['Data Analytics', 'Finance'].includes(user.role)) activeSignals.add('role-data-finance');
+  if (['Product', 'Operations', 'Engineering', 'Consulting'].includes(user.role)) activeSignals.add('role-product-ops-corp');
+
+  // Audience
+  const extAudiences = ['Investors', 'VCs', 'Board members', 'Angel investors', 'Enterprise clients', 'Prospects', 'C-suite buyers', 'Potential clients', 'Recruiters', 'Art directors'];
+  if (extAudiences.includes(user.audience)) activeSignals.add('external-audience');
+
+  // Prompt-based (auto-detect from topic)
+  if (/pitch|proposal|portfolio|case study/i.test(user.topic)) activeSignals.add('prompt-pitch-proposal');
+  if (/quarterly|review|KPI|revenue|growth|metric/i.test(user.topic)) activeSignals.add('prompt-quarterly-kpi');
+
+  // State signals
+  if (user.credits < 30) activeSignals.add('credits-low');
+  if (user.credits === 0) activeSignals.add('credits-zero');
+  if (user.sessionNum > 1) activeSignals.add('returning-user');
+  if (user.boughtExport) activeSignals.add('bought-export');
+  if (user.dismissals === 0) activeSignals.add('zero-dismissals');
+
+  return user;
+}
+
+// ── SIGNAL TO FEATURE SCORING ──
+
+// Direct signal map: signal → { featureId: weight }
+const DIRECT_MAP = {
+  'edits-5plus':        { 'ai-edit': 5, 'ai-enhance': 2 },
+  're-edit-3x':         { 'ai-edit': 5, 'ai-enhance': 3 },
+  'slides-15plus':      { 'ai-enhance': 5, 'ai-edit': 2, 'invite-collab': 3 },
+  'time-20':            { 'ai-edit': 3, 'ai-enhance': 3 },
+  'brand-mention':      { 'brand-colors': 5 },
+  'role-marketing-design': { 'brand-colors': 4 },
+  'multi-deck':         { 'brand-colors': 3 },
+  'external-audience':  { 'rm-watermark': 5, 'share-clean': 5, 'analytics': 3, 'pdf-export': 2, 'brand-colors': 2 },
+  'slideshow':          { 'rm-watermark': 4, 'pptx-export': 4, 'pdf-export': 3 },
+  'share-clicked':      { 'rm-watermark': 4, 'share-clean': 5, 'analytics': 4, 'pdf-export': 3 },
+  'role-founder-sales': { 'rm-watermark': 3, 'share-clean': 3, 'analytics': 4, 'pdf-export': 2 },
+  'prompt-pitch-proposal': { 'rm-watermark': 3, 'pdf-export': 4, 'pptx-export': 2, 'share-clean': 3, 'analytics': 4 },
+  'started-blank':      { 'pro-templates': 5 },
+  'role-educator':      { 'pro-templates': 2, 'pptx-export': 4 },
+  'new-deck-session2':  { 'pro-templates': 4 },
+  'team-language':      { 'invite-collab': 5 },
+  'role-product-ops-corp': { 'invite-collab': 4 },
+  'data-content':       { 'analytics': 5 },
+  'role-data-finance':  { 'analytics': 4 },
+  'prompt-quarterly-kpi': { 'analytics': 4 },
+  'deck-edited':        { 'rm-watermark': 2, 'pdf-export': 3, 'pptx-export': 3, 'share-clean': 2 },
+  'bought-export':      { 'pdf-export': 4, 'pptx-export': 4 },
+  'slideshow-then-edit': { 'ai-edit': 4, 'ai-enhance': 4 },
+  'format-edits':       { 'ai-edit': 4, 'ai-enhance': 2 },
+  'pricing-visit':      {},  // universal only
+};
+
+// Universal signals and their weights (applied at 0.4x to all features)
+const UNIVERSAL_MAP = {
+  'credits-low': 3,
+  'credits-zero': 5,
+  'returning-user': 4,
+  'pricing-visit': 3,
+  'bought-export': 4,
+  'time-15': 3,
+  'multi-deck': 3,
+  'zero-dismissals': 1,
+};
+
+const THRESHOLD = 10;
+const MAX_SCORE = 30; // for bar visualization
+
+function calculateScores() {
+  const scores = {};
+
+  FEATURES.forEach(f => {
+    let direct = 0;
+    let universal = 0;
+    const directSignals = [];
+    const universalSignals = [];
+
+    activeSignals.forEach(sig => {
+      // Direct
+      if (DIRECT_MAP[sig] && DIRECT_MAP[sig][f.id]) {
+        direct += DIRECT_MAP[sig][f.id];
+        directSignals.push({ name: sig, weight: DIRECT_MAP[sig][f.id] });
+      }
+      // Universal
+      if (UNIVERSAL_MAP[sig]) {
+        universal += UNIVERSAL_MAP[sig];
+        universalSignals.push({ name: sig, weight: UNIVERSAL_MAP[sig] });
+      }
+    });
+
+    const universalContrib = universal * 0.4;
+    const total = direct + universalContrib;
+
+    scores[f.id] = {
+      direct,
+      universalRaw: universal,
+      universalContrib: Math.round(universalContrib * 10) / 10,
+      total: Math.round(total * 10) / 10,
+      directSignals,
+      universalSignals,
+    };
+  });
+
+  return scores;
+}
+
+// ── GUARDRAILS ──
+function checkGuardrails(featureId) {
+  const reasons = [];
+  let pass = true;
+
+  if (milestonesThisSession >= 3) {
+    reasons.push('Session cap reached (3/3)');
+    pass = false;
+  }
+
+  const now = Date.now();
+  const cooldown = 60 * 1000; // 1 min
+  if (now - lastMilestoneTime < cooldown && lastMilestoneTime > 0) {
+    const remaining = Math.ceil((cooldown - (now - lastMilestoneTime)) / 1000);
+    reasons.push('Cooldown active (' + remaining + 's)');
+    pass = false;
+  }
+
+  if (featuresShownThisSession.has(featureId)) {
+    reasons.push('Feature already shown this session');
+    pass = false;
+  }
+
+  // Global intent floor (simplified: check universal signals total)
+  let intentFloor = 0;
+  activeSignals.forEach(sig => {
+    if (UNIVERSAL_MAP[sig]) intentFloor += UNIVERSAL_MAP[sig];
+  });
+  if (intentFloor < 3) {
+    reasons.push('Global intent too low');
+    pass = false;
+  }
+
+  return { pass, reasons };
+}
+
+// ── MILESTONE FIRING ──
+function evaluateAndFire() {
+  const scores = calculateScores();
+
+  // Rank features by score
+  const ranked = FEATURES
+    .map(f => ({ ...f, ...scores[f.id] }))
+    .filter(f => f.total >= THRESHOLD)
+    .filter(f => !featuresShownThisSession.has(f.id))
+    .sort((a, b) => b.total - a.total);
+
+  if (ranked.length === 0) return;
+
+  // Try to fire top scorer
+  const top = ranked[0];
+  const gr = checkGuardrails(top.id);
+
+  if (gr.pass) {
+    fireMilestone(top);
+  }
+}
+
+function fireMilestone(feature) {
+  milestonesThisSession++;
+  featuresShownThisSession.add(feature.id);
+  lastMilestoneTime = Date.now();
+
+  const copy = generateMilestoneCopy(feature);
+
+  milestoneLog.unshift({
+    feature: feature,
+    copy: copy,
+    score: feature.total,
+    direct: feature.direct,
+    universal: feature.universalContrib,
+    directSignals: feature.directSignals,
+    universalSignals: feature.universalSignals,
+    time: new Date().toLocaleTimeString(),
+  });
+
+  renderFeed();
+  renderMatrix();
+  renderGuardrails();
+}
+
+// ── COPY GENERATION (uses the dynamic engine concept) ──
+function generateMilestoneCopy(f) {
+  const u = user;
+  const topic = u.topic.split(' ').length > 4 ? u.topic.split(' ').slice(0, 4).join(' ') + '...' : u.topic;
+
+  // Pick strongest signal for context line
+  let context = '';
+  if (activeSignals.has('credits-zero')) context = 'No credits remaining.';
+  else if (activeSignals.has('bought-export')) context = 'You paid $4.99 for a single export.';
+  else if (activeSignals.has('credits-low')) context = u.credits + ' credits left.';
+  else if (activeSignals.has('returning-user') && activeSignals.has('multi-deck')) context = 'Session ' + u.sessionNum + ', multiple decks built.';
+  else if (activeSignals.has('returning-user')) context = 'You are back for session ' + u.sessionNum + '.';
+  else if (activeSignals.has('share-clicked')) context = 'You are about to share this.';
+  else if (activeSignals.has('slideshow')) context = 'You just previewed your deck.';
+
+  const title = f.verb;
+  let body = '';
+
+  if (context) {
+    body = context + ' ' + f.name + ' ' + f.does + '. Your ' + topic + ' deck for ' + u.audience + ' gets ' + f.result + '.';
+  } else {
+    body = f.name + ' ' + f.does + '. Your ' + topic + ' deck for ' + u.audience + ' gets ' + f.result + '.';
+  }
+
+  return { title, body };
+}
+
+// ── RENDERING ──
+function renderUserContext() {
+  const u = user;
+  const rows = [
+    ['Name', u.name],
+    ['Role', u.role],
+    ['Archetype', u.archetype, true],
+    ['Audience', u.audience],
+    ['Topic', u.topic],
+    ['Credits', u.credits + ' / 100'],
+    ['Session', u.sessionNum === 1 ? '1st visit' : 'Session ' + u.sessionNum],
+    ['Bought export', u.boughtExport ? 'Yes ($4.99)' : 'No'],
+    ['Past dismissals', u.dismissals],
+  ];
+
+  document.getElementById('user-context').innerHTML = rows.map(r =>
+    '<div class="user-row"><span class="user-label">' + r[0] + '</span><span class="user-value' + (r[2] ? ' highlight' : '') + '">' + r[1] + '</span></div>'
+  ).join('');
+}
+
+function renderActions() {
+  const grid = document.getElementById('action-grid');
+  grid.innerHTML = ACTIONS.map(a =>
+    '<button class="action-btn" id="act-' + a.id + '" onclick="performAction(\'' + a.id + '\')">' + a.label + '</button>'
+  ).join('');
+}
+
+function performAction(actionId) {
+  const action = ACTIONS.find(a => a.id === actionId);
+  if (!action) return;
+
+  // Add signals
+  action.signals.forEach(s => activeSignals.add(s));
+
+  // Mark button
+  const btn = document.getElementById('act-' + actionId);
+  if (btn) btn.classList.add('done');
+
+  // Re-render and evaluate
+  renderSignals();
+  renderMatrix();
+  renderGuardrails();
+  evaluateAndFire();
+}
+
+function renderSignals() {
+  const allSignals = [
+    { id: 'edits-5plus', label: '5+ manual edits', type: 'direct' },
+    { id: 're-edit-3x', label: 'Same slide re-edited 3x', type: 'direct' },
+    { id: 'slides-15plus', label: '15+ slides generated', type: 'direct' },
+    { id: 'time-20', label: '20+ min editing', type: 'direct' },
+    { id: 'time-15', label: '15+ min in editor', type: 'universal' },
+    { id: 'brand-mention', label: 'Brand/company in prompt', type: 'direct' },
+    { id: 'external-audience', label: 'External audience', type: 'direct' },
+    { id: 'slideshow', label: 'Slideshow played', type: 'direct' },
+    { id: 'share-clicked', label: 'Share clicked', type: 'direct' },
+    { id: 'started-blank', label: 'Started from blank', type: 'direct' },
+    { id: 'team-language', label: 'Team/we/our language', type: 'direct' },
+    { id: 'data-content', label: 'Data/metrics content', type: 'direct' },
+    { id: 'deck-edited', label: 'Deck edited post-gen', type: 'direct' },
+    { id: 'slideshow-then-edit', label: 'Edit after preview', type: 'direct' },
+    { id: 'format-edits', label: 'Formatting edits', type: 'direct' },
+    { id: 'manual-edit', label: 'Manual edit', type: 'direct' },
+    { id: 'multi-deck', label: '2+ decks created', type: 'both' },
+    { id: 'new-deck-session2', label: 'New deck in session 2+', type: 'direct' },
+    { id: 'role-founder-sales', label: 'Role: Founder/Sales', type: 'direct' },
+    { id: 'role-marketing-design', label: 'Role: Marketing/Design', type: 'direct' },
+    { id: 'role-educator', label: 'Role: Educator', type: 'direct' },
+    { id: 'role-data-finance', label: 'Role: Data/Finance', type: 'direct' },
+    { id: 'role-product-ops-corp', label: 'Role: Product/Ops/Corp', type: 'direct' },
+    { id: 'prompt-pitch-proposal', label: 'Prompt: pitch/proposal', type: 'direct' },
+    { id: 'prompt-quarterly-kpi', label: 'Prompt: quarterly/KPI', type: 'direct' },
+    { id: 'credits-low', label: 'Credits < 30', type: 'universal' },
+    { id: 'credits-zero', label: 'Credits = 0', type: 'universal' },
+    { id: 'returning-user', label: 'Returning user', type: 'universal' },
+    { id: 'pricing-visit', label: 'Visited pricing', type: 'universal' },
+    { id: 'bought-export', label: 'Bought single export', type: 'both' },
+    { id: 'zero-dismissals', label: '0 dismissals', type: 'universal' },
+  ];
+
+  const list = document.getElementById('signal-list');
+  list.innerHTML = allSignals
+    .filter(s => activeSignals.has(s.id))
+    .map(s => {
+      const typeLabel = s.type === 'universal' ? 'UNI' : s.type === 'both' ? 'D+U' : 'DIR';
+      const typeColor = s.type === 'universal' ? 'var(--yellow)' : s.type === 'both' ? 'var(--cyan)' : 'var(--blue)';
+      return '<div class="signal-row active"><span class="signal-name">' + s.label + '</span><span class="signal-weight" style="color:' + typeColor + '">' + typeLabel + '</span></div>';
+    }).join('');
+
+  if (list.innerHTML === '') {
+    list.innerHTML = '<div class="signal-row" style="opacity:0.4;font-size:11px;color:var(--text-dim)">No behavioral signals yet — perform actions above</div>';
+  }
+}
+
+function renderMatrix() {
+  const scores = calculateScores();
+  const ranked = FEATURES
+    .map(f => ({ ...f, ...scores[f.id] }))
+    .sort((a, b) => b.total - a.total);
+
+  const topId = ranked.length > 0 && ranked[0].total >= THRESHOLD ? ranked[0].id : null;
+
+  const body = document.getElementById('matrix-body');
+  body.innerHTML = ranked.map(f => {
+    const pct = Math.min((f.total / MAX_SCORE) * 100, 100);
+    const threshPct = (THRESHOLD / MAX_SCORE) * 100;
+    const isAbove = f.total >= THRESHOLD;
+    const isTop = f.id === topId;
+    const isShown = featuresShownThisSession.has(f.id);
+
+    let barClass = 'low';
+    let numClass = 'below';
+    if (f.total >= THRESHOLD) { barClass = 'high'; numClass = 'above'; }
+    else if (f.total >= THRESHOLD * 0.7) { barClass = 'mid'; numClass = 'near'; }
+    if (isTop) { barClass = 'top'; numClass = 'top'; }
+
+    let badge = '';
+    if (isShown) badge = '<span class="badge" style="background:rgba(255,255,255,0.05);color:var(--text-dim)">SHOWN</span>';
+    else if (isTop && isAbove) badge = '<span class="badge fire">NEXT</span>';
+    else if (isAbove) badge = '<span class="badge queued">QUEUED</span>';
+
+    const rowClass = isTop && isAbove ? 'top-pick' : isAbove ? 'qualified' : '';
+
+    return '<tr class="' + rowClass + '">' +
+      '<td class="feature-name">' + f.icon + ' ' + f.name + '</td>' +
+      '<td class="direct-val">' + f.direct + '</td>' +
+      '<td class="universal-val">' + f.universalContrib + '</td>' +
+      '<td class="score-bar-cell"><div class="score-bar-wrap">' +
+        '<div class="score-bar-bg">' +
+          '<div class="score-bar-fill ' + barClass + '" style="width:' + pct + '%"></div>' +
+          '<div class="threshold-line" style="left:' + threshPct + '%"></div>' +
+        '</div>' +
+        '<span class="score-num ' + numClass + '">' + f.total + '</span>' +
+      '</div></td>' +
+      '<td>' + badge + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function renderGuardrails() {
+  const now = Date.now();
+  const cooldownLeft = lastMilestoneTime > 0 ? Math.max(0, 60 - Math.floor((now - lastMilestoneTime) / 1000)) : 0;
+
+  let intentFloor = 0;
+  activeSignals.forEach(sig => { if (UNIVERSAL_MAP[sig]) intentFloor += UNIVERSAL_MAP[sig]; });
+
+  const bar = document.getElementById('guardrail-bar');
+  bar.innerHTML = [
+    { label: 'Milestones fired', value: milestonesThisSession + '/3', status: milestonesThisSession >= 3 ? 'blocked' : milestonesThisSession >= 2 ? 'warn' : 'ok' },
+    { label: 'Cooldown', value: cooldownLeft > 0 ? cooldownLeft + 's' : 'Ready', status: cooldownLeft > 0 ? 'warn' : 'ok' },
+    { label: 'Features shown', value: featuresShownThisSession.size + '/10', status: 'ok' },
+    { label: 'Intent floor', value: intentFloor >= 3 ? 'Pass (' + intentFloor + ')' : 'Low (' + intentFloor + ')', status: intentFloor >= 3 ? 'ok' : 'blocked' },
+  ].map(g =>
+    '<div class="gr-item"><span>' + g.label + '</span><span class="gr-value ' + g.status + '">' + g.value + '</span></div>'
+  ).join('');
+}
+
+function renderFeed() {
+  const content = document.getElementById('feed-content');
+
+  if (milestoneLog.length === 0) {
+    content.innerHTML = '<div class="empty-feed">Perform actions to trigger milestones. Scores update in real-time.</div>';
+    return;
+  }
+
+  content.innerHTML = milestoneLog.map(m => {
+    const directTags = m.directSignals.map(s =>
+      '<span class="milestone-signal-tag">' + s.name + ' (+' + s.weight + ')</span>'
+    ).join('');
+    const uniTags = m.universalSignals.map(s =>
+      '<span class="milestone-signal-tag universal">' + s.name + ' (+' + s.weight + ' x0.4)</span>'
+    ).join('');
+
+    return '<div class="milestone-item">' +
+      '<div class="milestone-icon">' + m.feature.icon + '</div>' +
+      '<div class="milestone-content">' +
+        '<div class="milestone-feature">' + m.feature.name + '</div>' +
+        '<div class="milestone-title">' + m.copy.title + '</div>' +
+        '<div class="milestone-body">' + m.copy.body + '</div>' +
+        '<div class="milestone-meta">' +
+          '<span>Score: <strong>' + m.score + '</strong></span>' +
+          '<span>Direct: <strong>' + m.direct + '</strong></span>' +
+          '<span>Universal: <strong>' + m.universal + '</strong></span>' +
+          '<span>' + m.time + '</span>' +
+        '</div>' +
+        '<div class="milestone-signals">' + directTags + uniTags + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ── INIT ──
+function resetSimulator() {
+  activeSignals = new Set();
+  milestonesThisSession = 0;
+  featuresShownThisSession = new Set();
+  lastMilestoneTime = 0;
+  milestoneLog = [];
+
+  generateUser();
+  renderUserContext();
+  renderActions();
+  renderSignals();
+  renderMatrix();
+  renderGuardrails();
+  renderFeed();
+}
+
+resetSimulator();
+</script>
+</body>
+</html>
