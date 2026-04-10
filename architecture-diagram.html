@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nudge Decision Engine — Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 48px;
+    min-width: 1200px;
+  }
+
+  .diagram-title {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .diagram-title h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #e6edf3;
+  }
+  .diagram-title p {
+    font-size: 14px;
+    color: #8b949e;
+    margin-top: 4px;
+  }
+
+  .diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    max-width: 1120px;
+    margin: 32px auto 0;
+  }
+
+  /* Row layout */
+  .row {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+  }
+  .row.center { justify-content: center; }
+
+  /* Arrow between rows */
+  .arrow-down {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0;
+  }
+  .arrow-down svg { display: block; }
+
+  /* Card styles */
+  .card {
+    border-radius: 12px;
+    padding: 20px 24px;
+    border: 1px solid #30363d;
+    flex: 1;
+    min-width: 0;
+  }
+  .card-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-header .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Color themes */
+  .card.signals { background: rgba(56, 139, 253, 0.06); border-color: rgba(56, 139, 253, 0.3); }
+  .card.signals .card-header { color: #79c0ff; }
+  .card.signals .dot { background: #58a6ff; }
+
+  .card.engine { background: rgba(139, 92, 246, 0.06); border-color: rgba(139, 92, 246, 0.3); }
+  .card.engine .card-header { color: #a78bfa; }
+  .card.engine .dot { background: #8b5cf6; }
+
+  .card.decision { background: rgba(210, 153, 34, 0.06); border-color: rgba(210, 153, 34, 0.3); }
+  .card.decision .card-header { color: #e3b341; }
+  .card.decision .dot { background: #d29922; }
+
+  .card.output { background: rgba(63, 185, 80, 0.06); border-color: rgba(63, 185, 80, 0.3); }
+  .card.output .card-header { color: #56d364; }
+  .card.output .dot { background: #3fb950; }
+
+  .card.suppress { background: rgba(248, 81, 73, 0.06); border-color: rgba(248, 81, 73, 0.3); }
+  .card.suppress .card-header { color: #f97583; }
+  .card.suppress .dot { background: #f85149; }
+
+  /* Items inside cards */
+  .item-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .item {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    color: #8b949e;
+    border: 1px solid rgba(255,255,255,0.06);
+    white-space: nowrap;
+  }
+  .item.highlight {
+    color: #e6edf3;
+    background: rgba(255,255,255,0.07);
+    font-weight: 500;
+  }
+  .item .pts {
+    font-size: 10px;
+    color: #58a6ff;
+    margin-left: 4px;
+  }
+
+  /* Score bar */
+  .score-bar {
+    display: flex;
+    margin-top: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .score-bar div {
+    padding: 6px 4px;
+    flex: 1;
+  }
+  .sb-0 { background: rgba(255,255,255,0.04); color: #484f58; }
+  .sb-1 { background: rgba(56,139,253,0.15); color: #79c0ff; }
+  .sb-2 { background: rgba(139,92,246,0.15); color: #a78bfa; }
+  .sb-3 { background: rgba(210,153,34,0.15); color: #e3b341; }
+  .sb-4 { background: rgba(248,81,73,0.15); color: #f97583; }
+  .sb-5 { background: rgba(63,185,80,0.15); color: #56d364; }
+
+  /* Overlay chips */
+  .overlay-chip {
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .overlay-chip .num {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255,255,255,0.08);
+    color: #8b949e;
+  }
+
+  /* Description text */
+  .desc {
+    font-size: 12px;
+    color: #8b949e;
+    line-height: 1.5;
+    margin-top: 8px;
+  }
+
+  /* Flow connector */
+  .flow-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #484f58;
+    text-align: center;
+    padding: 2px 0;
+  }
+
+  /* Archetype grid */
+  .archetype-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .arch-item {
+    font-size: 10px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: rgba(139,92,246,0.08);
+    color: #a78bfa;
+    text-align: center;
+    border: 1px solid rgba(139,92,246,0.15);
+  }
+
+  /* Two column inside card */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .col-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #484f58;
+    margin-bottom: 6px;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 11px;
+    color: #30363d;
+  }
+</style>
+</head>
+<body>
+
+<div class="diagram-title">
+  <h1>Nudge Decision Engine</h1>
+  <p>Presentations.AI — Intent-score-based upsell system for free → Pro conversion</p>
+</div>
+
+<div class="diagram">
+
+  <!-- ROW 1: User Signals -->
+  <div class="row">
+    <div class="card signals" style="flex: 2;">
+      <div class="card-header"><span class="dot"></span>User Signals (Collected)</div>
+      <div class="two-col">
+        <div>
+          <div class="col-label">Onboarding (Session Start)</div>
+          <div class="item-list">
+            <div class="item highlight">Role <span class="pts">w:3</span></div>
+            <div class="item highlight">Audience <span class="pts">w:3</span></div>
+            <div class="item">Topic <span class="pts">w:2</span></div>
+            <div class="item">Email domain <span class="pts">w:1</span></div>
+            <div class="item">Doc content <span class="pts">w:2</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="col-label">Real-Time (During Session)</div>
+          <div class="item-list">
+            <div class="item highlight">Gate hit <span class="pts">+3</span></div>
+            <div class="item highlight">2nd deck <span class="pts">+4</span></div>
+            <div class="item">Credits &lt;50 <span class="pts">+3</span></div>
+            <div class="item">Credits = 0 <span class="pts">+5</span></div>
+            <div class="item">Bought export <span class="pts">+5</span></div>
+            <div class="item">Shared deck <span class="pts">+2</span></div>
+            <div class="item">Pricing page <span class="pts">+2</span></div>
+            <div class="item">Time &gt;10m <span class="pts">+1</span></div>
+            <div class="item">Return bonus <span class="pts">+3</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">
+    <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M4 18 L12 28 L20 18" stroke="#30363d" stroke-width="2" fill="none"/></svg>
+  </div>
+
+  <!-- ROW 2: Three Processing Engines -->
+  <div class="flow-label">Processing Layer</div>
+  <div class="row">
+    <!-- Intent Score -->
+    <div class="card engine">
+      <div class="card-header"><span class="dot"></span>Intent Score</div>
+      <div class="desc">Continuous score (0→∞). Accumulates from weighted signals. Persists across sessions. Never below 0.</div>
+      <div class="score-bar">
+        <div class="sb-0">0</div>
+        <div class="sb-1">1–5</div>
+        <div class="sb-2">6–10</div>
+        <div class="sb-3">11–15</div>
+        <div class="sb-4">16–20</div>
+        <div class="sb-5">20+</div>
+      </div>
+    </div>
+
+    <!-- Archetype Detection -->
+    <div class="card engine">
+      <div class="card-header"><span class="dot"></span>Archetype Detection</div>
+      <div class="desc">Weighted scoring across signals. Highest score wins. Re-evaluated per deck. Determines copy tone.</div>
+      <div class="archetype-grid">
+        <div class="arch-item">Founder</div>
+        <div class="arch-item">Sales</div>
+        <div class="arch-item">Educator</div>
+        <div class="arch-item">Corporate</div>
+        <div class="arch-item">Creative</div>
+        <div class="arch-item">Student</div>
+        <div class="arch-item">Fallback</div>
+      </div>
+    </div>
+
+    <!-- LLM Copy Gen -->
+    <div class="card engine">
+      <div class="card-header"><span class="dot"></span>LLM Copy Generation</div>
+      <div class="desc">Batch call at session start. Generates personalized copy for all 11 paywall features. Cached in memory.</div>
+      <div class="item-list" style="margin-top: 8px;">
+        <div class="item">11 features</div>
+        <div class="item">Title + Body</div>
+        <div class="item">Max 2 sentences</div>
+        <div class="item">Fallback templates</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">
+    <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M4 18 L12 28 L20 18" stroke="#30363d" stroke-width="2" fill="none"/></svg>
+  </div>
+
+  <!-- ROW 3: Overlay Decision -->
+  <div class="flow-label">Decision Layer</div>
+  <div class="row">
+    <!-- Score → Overlay Mapping -->
+    <div class="card decision">
+      <div class="card-header"><span class="dot"></span>Score → Overlay Mapping</div>
+      <div class="desc" style="margin-bottom: 8px;">Intent score unlocks which overlays <em>can</em> fire. Trigger determines which one <em>does</em> fire.</div>
+      <div class="item-list">
+        <div class="overlay-chip"><span class="num">1</span> Contextual Tooltip</div>
+        <div class="overlay-chip"><span class="num">2</span> Credit Reminder</div>
+        <div class="overlay-chip"><span class="num">3</span> Usage Insight</div>
+        <div class="overlay-chip"><span class="num">4</span> Comparison Card</div>
+        <div class="overlay-chip"><span class="num">5</span> Milestone Moment</div>
+        <div class="overlay-chip"><span class="num">6</span> Upgrade Panel</div>
+      </div>
+    </div>
+
+    <!-- Rules Engine -->
+    <div class="card suppress">
+      <div class="card-header"><span class="dot"></span>Rules Engine (Suppress?)</div>
+      <div class="desc" style="margin-bottom: 8px;">Can suppress a nudge but never change the type. Runs after overlay selection.</div>
+      <div class="item-list">
+        <div class="item">3 nudges/session cap</div>
+        <div class="item">No interrupt during work</div>
+        <div class="item">Wait for 3s pause</div>
+        <div class="item">1 tooltip/feature/session</div>
+        <div class="item">Credits &gt;50 → no credit nudge</div>
+        <div class="item">Dismiss history check</div>
+        <div class="item">Upgrade = kill switch</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">
+    <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M4 18 L12 28 L20 18" stroke="#30363d" stroke-width="2" fill="none"/></svg>
+  </div>
+
+  <!-- ROW 4: Render -->
+  <div class="flow-label">Output</div>
+  <div class="row center">
+    <div class="card output" style="max-width: 720px;">
+      <div class="card-header"><span class="dot"></span>Render Overlay</div>
+      <div class="desc">Modular component: Shell (type, size, position) + Icon + Title + Body + CTA + Dismiss options</div>
+      <div class="two-col" style="margin-top: 12px;">
+        <div>
+          <div class="col-label">User Response → Feedback Loop</div>
+          <div class="item-list">
+            <div class="item">CTA click → Pricing flow</div>
+            <div class="item">"Not now" → −1 score</div>
+            <div class="item">"Don't show again" → −2 score</div>
+            <div class="item">Ignored → −0.5 score</div>
+            <div class="item highlight">Upgraded → Kill all nudges</div>
+          </div>
+        </div>
+        <div>
+          <div class="col-label">Persistence</div>
+          <div class="item-list">
+            <div class="item">Intent score persists</div>
+            <div class="item">Dismiss history persists</div>
+            <div class="item">+3 return bonus next session</div>
+            <div class="item">Archetype re-evaluated</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">Presentations.AI — Nudge Decision Engine Architecture — April 2026</div>
+
+</body>
+</html>
