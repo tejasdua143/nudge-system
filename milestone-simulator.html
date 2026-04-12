@@ -732,6 +732,7 @@ function generateUser() {
 // Direct signal map: signal → { featureId: weight }
 const DIRECT_MAP = {
   // Editing signals → ai-models (better AI = better edits), brand-kit (style work)
+  'manual-edit':        { 'ai-models': 1, 'pres-refresh': 1 },
   'edits-5plus':        { 'ai-models': 5, 'pres-refresh': 2 },
   're-edit-3x':         { 'ai-models': 5, 'pres-refresh': 3 },
   'format-edits':       { 'ai-models': 4, 'brand-kit': 2 },
