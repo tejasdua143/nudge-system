@@ -504,6 +504,94 @@
     margin-bottom: 6px;
   }
   .breakdown-section-label:first-child { margin-top: 0; }
+
+  /* Action tooltips */
+  .action-btn {
+    position: relative;
+  }
+  .action-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 220px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.06);
+    z-index: 100;
+    pointer-events: none;
+  }
+  .action-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--border);
+  }
+  .action-tooltip::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--surface);
+    z-index: 1;
+  }
+  .action-btn:hover .action-tooltip {
+    display: block;
+  }
+  .tooltip-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 11px;
+  }
+  .tooltip-feature {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .tooltip-weight {
+    font-family: 'PT Mono', monospace;
+    font-weight: 700;
+    font-size: 11px;
+  }
+  .tooltip-weight.high { color: var(--accent); }
+  .tooltip-weight.med { color: var(--blue); }
+  .tooltip-weight.low { color: var(--text-dim); }
+  .tooltip-divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 6px 0;
+  }
+  .tooltip-uni-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--yellow);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+  }
+  .tooltip-empty {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
 </style>
 </head>
 <body>
@@ -1057,6 +1145,70 @@ function renderUserContext() {
   ).join('');
 }
 
+function getActionImpact(action) {
+  const featureMap = {}; // featureId → total weight
+  const universals = [];
+
+  action.signals.forEach(sig => {
+    // Direct impacts
+    if (DIRECT_MAP[sig]) {
+      Object.entries(DIRECT_MAP[sig]).forEach(([fId, weight]) => {
+        featureMap[fId] = (featureMap[fId] || 0) + weight;
+      });
+    }
+    // Universal impacts
+    if (UNIVERSAL_MAP[sig]) {
+      universals.push({ signal: sig, weight: UNIVERSAL_MAP[sig] });
+    }
+  });
+
+  // Map feature IDs to names
+  const directImpacts = Object.entries(featureMap)
+    .map(([fId, weight]) => {
+      const f = FEATURES.find(feat => feat.id === fId);
+      return { name: f ? f.name : fId, icon: f ? f.icon : '', weight };
+    })
+    .sort((a, b) => b.weight - a.weight);
+
+  return { directImpacts, universals };
+}
+
+function buildTooltipHTML(action) {
+  const impact = getActionImpact(action);
+  let html = '<div class="action-tooltip">';
+  html += '<div class="tooltip-title">Score Impact</div>';
+
+  if (impact.directImpacts.length === 0 && impact.universals.length === 0) {
+    html += '<div class="tooltip-empty">No scoring impact</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // Direct impacts
+  impact.directImpacts.forEach(d => {
+    const cls = d.weight >= 5 ? 'high' : d.weight >= 3 ? 'med' : 'low';
+    html += '<div class="tooltip-row">' +
+      '<span class="tooltip-feature">' + d.icon + ' ' + d.name + '</span>' +
+      '<span class="tooltip-weight ' + cls + '">+' + d.weight + '</span>' +
+    '</div>';
+  });
+
+  // Universal impacts
+  if (impact.universals.length > 0) {
+    html += '<div class="tooltip-divider"></div>';
+    html += '<div class="tooltip-uni-label">Universal (×0.4 all features)</div>';
+    impact.universals.forEach(u => {
+      html += '<div class="tooltip-row">' +
+        '<span class="tooltip-feature" style="color:var(--text-muted)">' + u.signal.replace(/-/g, ' ') + '</span>' +
+        '<span class="tooltip-weight low">+' + u.weight + '</span>' +
+      '</div>';
+    });
+  }
+
+  html += '</div>';
+  return html;
+}
+
 function renderActions() {
   const grid = document.getElementById('action-grid');
   const catLabels = {
@@ -1074,7 +1226,7 @@ function renderActions() {
     return '<div class="action-cat-label">' + catLabels[cat] + '</div>' +
       '<div class="action-cat-grid">' +
       actions.map(a =>
-        '<button class="action-btn" id="act-' + a.id + '" onclick="performAction(\'' + a.id + '\')">' + a.label + '</button>'
+        '<button class="action-btn" id="act-' + a.id + '" onclick="performAction(\'' + a.id + '\')">' + a.label + buildTooltipHTML(a) + '</button>'
       ).join('') +
       '</div>';
   }).join('');
