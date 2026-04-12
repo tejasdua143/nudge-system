@@ -567,16 +567,14 @@ const TOPICS = {
 };
 
 const FEATURES = [
-  { id: 'ai-edit', name: 'AI Edit', icon: '✏️', verb: 'Run AI Edit', does: 'fixes phrasing, spacing, and layout across your slides', result: 'cleaner, more consistent slides' },
-  { id: 'ai-enhance', name: 'AI Enhance', icon: '✨', verb: 'Run AI Enhance', does: 'restructures slides for better visual hierarchy and narrative flow', result: 'a deck that reads as well as it looks' },
-  { id: 'brand-colors', name: 'Brand Colors', icon: '🎨', verb: 'Apply brand colors', does: 'replaces default colors with your brand palette on every slide', result: 'a deck that looks like yours, not a template' },
-  { id: 'rm-watermark', name: 'Remove Watermark', icon: '🏷️', verb: 'Remove the watermark', does: 'removes the Presentations.AI badge from all slides', result: 'a clean deck with only your name on it' },
-  { id: 'pro-templates', name: 'Pro Templates', icon: '📐', verb: 'Use a Pro template', does: 'gives you professionally designed slide layouts', result: 'a stronger starting structure' },
-  { id: 'pdf-export', name: 'PDF Export', icon: '📄', verb: 'Export as PDF', does: 'downloads your deck as a static PDF that preserves layout', result: 'a portable file to email or print' },
-  { id: 'pptx-export', name: 'PPTX Export', icon: '📊', verb: 'Export as PPTX', does: 'downloads your deck as an editable PowerPoint file', result: 'a file that works offline on any device' },
-  { id: 'share-clean', name: 'Share Clean', icon: '🔗', verb: 'Share without watermark', does: 'generates a share link without the Presentations.AI badge', result: 'a clean link where only your content shows' },
-  { id: 'invite-collab', name: 'Invite Collab', icon: '👥', verb: 'Invite a collaborator', does: 'lets others view, comment, and edit your deck in real time', result: 'a second pair of eyes before sending' },
-  { id: 'analytics', name: 'Viewer Analytics', icon: '📈', verb: 'Turn on analytics', does: 'tracks who opened your deck and which slides they viewed', result: 'data on exactly how your audience engaged' },
+  { id: 'ai-models', name: 'Better AI Models', icon: '🧠', verb: 'Upgrade to a better AI model', does: 'uses Standard or Advanced AI models for higher quality slides and smarter content', result: 'sharper, more polished output' },
+  { id: 'brand-kit', name: 'Brand Kit', icon: '🎨', verb: 'Set up your Brand Kit', does: 'applies your custom brand colors and fonts across all slides', result: 'a deck that looks like your brand' },
+  { id: 'unbranded', name: 'Unbranded Pro Templates', icon: '📐', verb: 'Use unbranded templates', does: 'gives you professional templates without the Presentations.AI watermark', result: 'clean slides with no third-party branding' },
+  { id: 'export', name: 'PowerPoint/PDF Export', icon: '📄', verb: 'Export your deck', does: 'downloads your deck as a PowerPoint or PDF file', result: 'a portable file to present offline, email, or print' },
+  { id: 'invite-collab', name: 'Invite Collaborators', icon: '👥', verb: 'Invite collaborators', does: 'lets others view, comment, and edit your deck in real time', result: 'a second pair of eyes before sending' },
+  { id: 'analytics', name: 'Viewer Analytics', icon: '📈', verb: 'Turn on analytics', does: 'tracks who opened your deck, which slides they viewed, and for how long', result: 'data on how your audience engaged' },
+  { id: 'gen-speed', name: 'Generation Speed', icon: '⚡', verb: 'Upgrade generation speed', does: 'generates your presentations at Medium or Fast speed instead of Slow', result: 'less waiting, faster iteration' },
+  { id: 'pres-refresh', name: 'Presentation Refresh', icon: '🔄', verb: 'Refresh your presentation', does: 'regenerates and updates your presentation with improved content or structure', result: 'a fresh version without starting from scratch' },
 ];
 
 // ── ACTIONS ──
@@ -689,58 +687,58 @@ function generateUser() {
 
 // Direct signal map: signal → { featureId: weight }
 const DIRECT_MAP = {
-  // Editing signals
-  'edits-5plus':        { 'ai-edit': 5, 'ai-enhance': 2 },
-  're-edit-3x':         { 'ai-edit': 5, 'ai-enhance': 3 },
-  'format-edits':       { 'ai-edit': 4, 'ai-enhance': 2 },
-  'undo-redo':          { 'ai-edit': 4, 'ai-enhance': 3 },
-  'style-change':       { 'brand-colors': 3, 'ai-enhance': 2 },
-  'slide-delete':       { 'ai-enhance': 2 },
+  // Editing signals → ai-models (better AI = better edits), brand-kit (style work)
+  'edits-5plus':        { 'ai-models': 5, 'pres-refresh': 2 },
+  're-edit-3x':         { 'ai-models': 5, 'pres-refresh': 3 },
+  'format-edits':       { 'ai-models': 4, 'brand-kit': 2 },
+  'undo-redo':          { 'ai-models': 4, 'pres-refresh': 3 },
+  'style-change':       { 'brand-kit': 4, 'ai-models': 2 },
+  'slide-delete':       { 'ai-models': 2, 'pres-refresh': 2 },
 
-  // Content signals
-  'slides-15plus':      { 'ai-enhance': 5, 'ai-edit': 2, 'invite-collab': 3 },
-  'media-added':        { 'ai-enhance': 3 },
-  'slide-duplicate':    { 'ai-enhance': 2, 'pro-templates': 2 },
-  'manual-slide-add':   { 'pro-templates': 3, 'ai-enhance': 2 },
-  'slide-reorder':      { 'ai-enhance': 4 },
+  // Content signals → ai-models (quality), gen-speed (volume), invite-collab (big decks)
+  'slides-15plus':      { 'ai-models': 3, 'gen-speed': 5, 'invite-collab': 3 },
+  'media-added':        { 'ai-models': 3 },
+  'slide-duplicate':    { 'unbranded': 2, 'pres-refresh': 2 },
+  'manual-slide-add':   { 'unbranded': 3, 'ai-models': 2 },
+  'slide-reorder':      { 'ai-models': 3, 'pres-refresh': 3 },
   'data-content':       { 'analytics': 5 },
 
-  // Preview signals
-  'slideshow':          { 'rm-watermark': 4, 'pptx-export': 4, 'pdf-export': 3 },
-  'slideshow-then-edit': { 'ai-edit': 4, 'ai-enhance': 4 },
-  'idle-on-slide':      { 'ai-edit': 3, 'ai-enhance': 3 },
-  'template-switch':    { 'pro-templates': 5, 'brand-colors': 2 },
+  // Preview signals → unbranded (watermark visible), export (ready to present)
+  'slideshow':          { 'unbranded': 4, 'export': 4 },
+  'slideshow-then-edit': { 'ai-models': 4, 'pres-refresh': 4 },
+  'idle-on-slide':      { 'ai-models': 3, 'pres-refresh': 3 },
+  'template-switch':    { 'unbranded': 5, 'brand-kit': 3 },
 
-  // Sharing signals
-  'share-clicked':      { 'rm-watermark': 4, 'share-clean': 5, 'analytics': 4, 'pdf-export': 3 },
-  'link-copied':        { 'share-clean': 4, 'rm-watermark': 3, 'analytics': 3 },
-  'export-attempt':     { 'pdf-export': 5, 'pptx-export': 5 },
+  // Sharing signals → unbranded (clean sharing), analytics (track viewers), export
+  'share-clicked':      { 'unbranded': 5, 'analytics': 4, 'export': 3 },
+  'link-copied':        { 'unbranded': 4, 'analytics': 4 },
+  'export-attempt':     { 'export': 5 },
 
   // Prompt & creation signals
-  'brand-mention':      { 'brand-colors': 5 },
+  'brand-mention':      { 'brand-kit': 5 },
   'team-language':      { 'invite-collab': 5 },
-  'started-blank':      { 'pro-templates': 5 },
-  'deck-edited':        { 'rm-watermark': 2, 'pdf-export': 3, 'pptx-export': 3, 'share-clean': 2 },
+  'started-blank':      { 'unbranded': 4, 'ai-models': 3 },
+  'deck-edited':        { 'unbranded': 2, 'export': 3 },
 
   // Session signals
-  'new-deck-session2':  { 'pro-templates': 4 },
-  'deck-switch':        { 'brand-colors': 3 },
+  'new-deck-session2':  { 'unbranded': 3, 'pres-refresh': 4, 'gen-speed': 3 },
+  'deck-switch':        { 'brand-kit': 3, 'pres-refresh': 3 },
   'gate-hit':           { },  // universal only — shows general Pro interest
-  'time-20':            { 'ai-edit': 3, 'ai-enhance': 3 },
+  'time-20':            { 'ai-models': 3, 'gen-speed': 4 },
 
   // Role signals
-  'role-marketing-design': { 'brand-colors': 4 },
-  'role-founder-sales': { 'rm-watermark': 3, 'share-clean': 3, 'analytics': 4, 'pdf-export': 2 },
-  'role-educator':      { 'pro-templates': 2, 'pptx-export': 4 },
-  'role-product-ops-corp': { 'invite-collab': 4 },
+  'role-marketing-design': { 'brand-kit': 4, 'unbranded': 2 },
+  'role-founder-sales': { 'unbranded': 3, 'analytics': 4, 'export': 3 },
+  'role-educator':      { 'unbranded': 2, 'export': 4 },
+  'role-product-ops-corp': { 'invite-collab': 4, 'gen-speed': 2 },
   'role-data-finance':  { 'analytics': 4 },
 
   // Context signals
-  'external-audience':  { 'rm-watermark': 5, 'share-clean': 5, 'analytics': 3, 'pdf-export': 2, 'brand-colors': 2 },
-  'prompt-pitch-proposal': { 'rm-watermark': 3, 'pdf-export': 4, 'pptx-export': 2, 'share-clean': 3, 'analytics': 4 },
+  'external-audience':  { 'unbranded': 5, 'analytics': 4, 'export': 2, 'brand-kit': 2 },
+  'prompt-pitch-proposal': { 'unbranded': 3, 'export': 4, 'analytics': 4 },
   'prompt-quarterly-kpi': { 'analytics': 4 },
-  'bought-export':      { 'pdf-export': 4, 'pptx-export': 4 },
-  'multi-deck':         { 'brand-colors': 3 },
+  'bought-export':      { 'export': 4 },
+  'multi-deck':         { 'brand-kit': 3, 'pres-refresh': 3 },
 
   'pricing-visit':      {},  // universal only
 };
@@ -957,37 +955,21 @@ function generateMilestoneCopy(f) {
   // The intelligence is in WHICH feature was selected, not in the copy itself.
 
   const copies = {
-    'ai-edit': {
-      title: 'Run AI Edit',
-      body: 'Fix phrasing, spacing, and layout across your ' + topic + ' deck in one click. ' + u.audience + ' get cleaner, more consistent slides.',
+    'ai-models': {
+      title: 'Upgrade to a better AI model',
+      body: 'Generate higher quality slides for your ' + topic + ' deck. Better AI means sharper content, smarter layouts, and more polished output for ' + u.audience + '.',
     },
-    'ai-enhance': {
-      title: 'Run AI Enhance',
-      body: 'Restructure your ' + topic + ' slides for better visual hierarchy and flow. Makes it easier for ' + u.audience + ' to follow your narrative.',
+    'brand-kit': {
+      title: 'Set up your Brand Kit',
+      body: 'Apply your brand colors and fonts across every slide. Your ' + topic + ' deck looks like yours, not a template.',
     },
-    'brand-colors': {
-      title: 'Apply your brand colors',
-      body: 'Replace default colors with your brand palette across every slide. Your ' + topic + ' deck looks like yours, not a template.',
+    'unbranded': {
+      title: 'Use unbranded Pro templates',
+      body: 'Professional templates without the Presentations.AI watermark. ' + u.audience + ' see your content, not our branding.',
     },
-    'rm-watermark': {
-      title: 'Remove the watermark',
-      body: 'Your ' + topic + ' deck without the Presentations.AI badge. ' + u.audience + ' see your name on it, not ours.',
-    },
-    'pro-templates': {
-      title: 'Use a Pro template',
-      body: 'Professionally designed layouts for your ' + topic + ' deck. Start with a structure that works for ' + u.audience + '.',
-    },
-    'pdf-export': {
-      title: 'Export as PDF',
-      body: 'Download your ' + topic + ' deck as a clean PDF. Ready to email to ' + u.audience + ', print, or share internally.',
-    },
-    'pptx-export': {
-      title: 'Export as PowerPoint',
-      body: 'Download your ' + topic + ' deck as an editable .pptx file. Present to ' + u.audience + ' on any device, no WiFi needed.',
-    },
-    'share-clean': {
-      title: 'Share without watermark',
-      body: 'Share your ' + topic + ' deck with ' + u.audience + ' via a clean link. No Presentations.AI badge, just your content.',
+    'export': {
+      title: 'Export your deck',
+      body: 'Download your ' + topic + ' deck as a PowerPoint or PDF. Ready to email to ' + u.audience + ', present offline, or print.',
     },
     'invite-collab': {
       title: 'Invite collaborators',
@@ -995,7 +977,15 @@ function generateMilestoneCopy(f) {
     },
     'analytics': {
       title: 'Turn on viewer analytics',
-      body: 'See who in ' + u.audience + ' opened your ' + topic + ' deck, which slides they read, and how long they spent.',
+      body: 'See who in ' + u.audience + ' opened your ' + topic + ' deck, which slides they viewed, and how long they spent.',
+    },
+    'gen-speed': {
+      title: 'Upgrade generation speed',
+      body: 'Generate your ' + topic + ' deck at Medium or Fast speed instead of Slow. Less waiting, faster iteration.',
+    },
+    'pres-refresh': {
+      title: 'Refresh your presentation',
+      body: 'Regenerate your ' + topic + ' deck with improved content and structure. A fresh version without starting from scratch.',
     },
   };
 
@@ -1189,7 +1179,7 @@ function renderGuardrails() {
   bar.innerHTML = [
     { label: 'Milestones fired', value: milestonesThisSession + '/3', status: milestonesThisSession >= 3 ? 'blocked' : milestonesThisSession >= 2 ? 'warn' : 'ok' },
     { label: 'Cooldown', value: cooldownLeft > 0 ? cooldownLeft + 's' : 'Ready', status: cooldownLeft > 0 ? 'warn' : 'ok' },
-    { label: 'Features shown', value: featuresShownThisSession.size + '/10', status: 'ok' },
+    { label: 'Features shown', value: featuresShownThisSession.size + '/8', status: 'ok' },
     { label: 'Intent floor', value: intentFloor >= 3 ? 'Pass (' + intentFloor + ')' : 'Low (' + intentFloor + ')', status: intentFloor >= 3 ? 'ok' : 'blocked' },
   ].map(g =>
     '<div class="gr-item"><span>' + g.label + '</span><span class="gr-value ' + g.status + '">' + g.value + '</span></div>'
