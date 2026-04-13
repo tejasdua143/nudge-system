@@ -790,20 +790,32 @@ function generateUser() {
   // Set initial signals from user context
   activeSignals = new Set();
 
-  // Role-based signals
-  if (['Sales', 'Leadership'].includes(user.role)) activeSignals.add('role-founder-sales');
-  if (['Marketing', 'Design'].includes(user.role)) activeSignals.add('role-marketing-design');
-  if (['Teacher'].includes(user.role)) activeSignals.add('role-educator');
-  if (['Data Analytics', 'Finance'].includes(user.role)) activeSignals.add('role-data-finance');
-  if (['Product', 'Operations', 'Engineering', 'Consulting'].includes(user.role)) activeSignals.add('role-product-ops-corp');
+  // ── LAYER 1: Mindset (from role) ──
+  const MINDSET_MAP = {
+    'Sales': 'mindset-persuader', 'Leadership': 'mindset-persuader',
+    'Marketing': 'mindset-brand-builder', 'Design': 'mindset-brand-builder', 'Creator': 'mindset-brand-builder',
+    'Product': 'mindset-operator', 'Operations': 'mindset-operator', 'Engineering': 'mindset-operator', 'Consulting': 'mindset-operator',
+    'Data Analytics': 'mindset-analyst', 'Finance': 'mindset-analyst',
+    'Teacher': 'mindset-educator',
+    'Student': 'mindset-learner',
+  };
+  if (MINDSET_MAP[user.role]) activeSignals.add(MINDSET_MAP[user.role]);
 
-  // Audience
-  const extAudiences = ['Investors', 'VCs', 'Board members', 'Angel investors', 'Enterprise clients', 'Prospects', 'C-suite buyers', 'Potential clients', 'Recruiters', 'Art directors'];
-  if (extAudiences.includes(user.audience)) activeSignals.add('external-audience');
+  // ── LAYER 2: Audience stakes ──
+  const highStakes = ['Investors', 'VCs', 'Board members', 'Angel investors', 'Enterprise clients', 'C-suite buyers'];
+  const lowStakes = ['Prospects', 'Potential clients', 'Recruiters', 'Art directors'];
+  // Everything else is internal
+  if (highStakes.includes(user.audience)) activeSignals.add('stakes-high-external');
+  else if (lowStakes.includes(user.audience)) activeSignals.add('stakes-low-external');
+  else activeSignals.add('stakes-internal');
 
-  // Prompt-based (auto-detect from topic)
-  if (/pitch|proposal|portfolio|case study/i.test(user.topic)) activeSignals.add('prompt-pitch-proposal');
-  if (/quarterly|review|KPI|revenue|growth|metric/i.test(user.topic)) activeSignals.add('prompt-quarterly-kpi');
+  // ── LAYER 3: Topic purpose ──
+  if (/pitch|proposal|case study/i.test(user.topic)) activeSignals.add('purpose-persuade');
+  else if (/quarterly|review|KPI|roadmap|OKR|restructur/i.test(user.topic)) activeSignals.add('purpose-report');
+  else if (/introduction|workshop|lecture|methodology/i.test(user.topic)) activeSignals.add('purpose-educate');
+  else if (/portfolio|credentials|brand identity|demo/i.test(user.topic)) activeSignals.add('purpose-showcase');
+  else if (/thesis|capstone/i.test(user.topic)) activeSignals.add('purpose-defend');
+  else activeSignals.add('purpose-persuade'); // fallback
 
   // State signals
   if (user.credits < 30) activeSignals.add('credits-low');
@@ -859,17 +871,27 @@ const DIRECT_MAP = {
   'gate-hit':           { },  // universal only — shows general Pro interest
   'time-20':            { 'ai-models': 3, 'gen-speed': 4 },
 
-  // Role signals
-  'role-marketing-design': { 'brand-kit': 4, 'unbranded': 2 },
-  'role-founder-sales': { 'unbranded': 3, 'analytics': 4, 'export': 3 },
-  'role-educator':      { 'unbranded': 2, 'export': 4 },
-  'role-product-ops-corp': { 'invite-collab': 4, 'gen-speed': 2 },
-  'role-data-finance':  { 'analytics': 4 },
+  // ── Layer 1: Mindset signals (from role) ──
+  'mindset-persuader':     { 'unbranded': 2, 'analytics': 2, 'export': 2 },
+  'mindset-brand-builder': { 'brand-kit': 3, 'unbranded': 2 },
+  'mindset-operator':      { 'invite-collab': 3, 'gen-speed': 2 },
+  'mindset-analyst':       { 'analytics': 3, 'export': 2 },
+  'mindset-educator':      { 'export': 2, 'gen-speed': 2 },
+  'mindset-learner':       { 'gen-speed': 2, 'ai-models': 2 },
+
+  // ── Layer 2: Audience stakes signals ──
+  'stakes-high-external':  { 'unbranded': 3, 'analytics': 2, 'brand-kit': 2 },
+  'stakes-low-external':   { 'unbranded': 2, 'brand-kit': 1 },
+  'stakes-internal':       { 'gen-speed': 2, 'ai-models': 2, 'invite-collab': 2 },
+
+  // ── Layer 3: Topic purpose signals ──
+  'purpose-persuade':      { 'unbranded': 2, 'export': 3, 'analytics': 3 },
+  'purpose-report':        { 'ai-models': 3, 'gen-speed': 2, 'analytics': 2 },
+  'purpose-educate':       { 'export': 3, 'gen-speed': 2 },
+  'purpose-showcase':      { 'brand-kit': 3, 'unbranded': 2 },
+  'purpose-defend':        { 'export': 3, 'unbranded': 2 },
 
   // Context signals
-  'external-audience':  { 'unbranded': 5, 'analytics': 4, 'export': 2, 'brand-kit': 2 },
-  'prompt-pitch-proposal': { 'unbranded': 3, 'export': 4, 'analytics': 4 },
-  'prompt-quarterly-kpi': { 'analytics': 4 },
   'bought-export':      { 'export': 4 },
   'multi-deck':         { 'brand-kit': 3, 'pres-refresh': 3 },
 
@@ -1288,15 +1310,23 @@ function renderSignals() {
     { id: 'gate-hit', label: 'Pro feature tapped', type: 'universal' },
     { id: 'time-15', label: '15+ min in editor', type: 'universal' },
     { id: 'time-20', label: '20+ min editing', type: 'direct' },
-    // Identity
-    { id: 'external-audience', label: 'External audience', type: 'direct' },
-    { id: 'role-founder-sales', label: 'Role: Founder/Sales', type: 'direct' },
-    { id: 'role-marketing-design', label: 'Role: Marketing/Design', type: 'direct' },
-    { id: 'role-educator', label: 'Role: Educator', type: 'direct' },
-    { id: 'role-data-finance', label: 'Role: Data/Finance', type: 'direct' },
-    { id: 'role-product-ops-corp', label: 'Role: Product/Ops/Corp', type: 'direct' },
-    { id: 'prompt-pitch-proposal', label: 'Prompt: pitch/proposal', type: 'direct' },
-    { id: 'prompt-quarterly-kpi', label: 'Prompt: quarterly/KPI', type: 'direct' },
+    // Layer 1: Mindset (from role)
+    { id: 'mindset-persuader', label: 'Mindset: Persuader', type: 'direct' },
+    { id: 'mindset-brand-builder', label: 'Mindset: Brand Builder', type: 'direct' },
+    { id: 'mindset-operator', label: 'Mindset: Operator', type: 'direct' },
+    { id: 'mindset-analyst', label: 'Mindset: Analyst', type: 'direct' },
+    { id: 'mindset-educator', label: 'Mindset: Educator', type: 'direct' },
+    { id: 'mindset-learner', label: 'Mindset: Learner', type: 'direct' },
+    // Layer 2: Audience stakes
+    { id: 'stakes-high-external', label: 'Stakes: High External', type: 'direct' },
+    { id: 'stakes-low-external', label: 'Stakes: Low External', type: 'direct' },
+    { id: 'stakes-internal', label: 'Stakes: Internal', type: 'direct' },
+    // Layer 3: Topic purpose
+    { id: 'purpose-persuade', label: 'Purpose: Persuade', type: 'direct' },
+    { id: 'purpose-report', label: 'Purpose: Report', type: 'direct' },
+    { id: 'purpose-educate', label: 'Purpose: Educate', type: 'direct' },
+    { id: 'purpose-showcase', label: 'Purpose: Showcase', type: 'direct' },
+    { id: 'purpose-defend', label: 'Purpose: Defend', type: 'direct' },
     // Universal
     { id: 'credits-low', label: 'Credits < 30', type: 'universal' },
     { id: 'credits-zero', label: 'Credits = 0', type: 'universal' },
