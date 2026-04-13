@@ -505,6 +505,84 @@
   }
   .breakdown-section-label:first-child { margin-top: 0; }
 
+  /* ── Nudge Modal Overlay ── */
+  .nudge-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    animation: overlayIn 0.25s ease;
+    backdrop-filter: blur(4px);
+  }
+  .nudge-overlay.active {
+    display: flex;
+  }
+  @keyframes overlayIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .nudge-modal {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    max-width: 820px;
+    width: 90%;
+    animation: modalIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(24px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .nudge-modal .nudge-ui {
+    flex: 0 0 420px;
+    max-width: 420px;
+  }
+  .nudge-modal .nudge-breakdown {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid var(--border);
+    box-shadow: var(--paper-shadow-lg);
+    flex: 1;
+    min-width: 0;
+  }
+  .nudge-modal-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+  }
+  .nudge-modal-close {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex: 1;
+  }
+  .nudge-modal-close:hover { border-color: var(--text-dim); color: var(--text); }
+  .nudge-modal-skip-cooldown {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: #F5F3FF;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex: 1;
+  }
+  .nudge-modal-skip-cooldown:hover { background: #EDE9FE; }
+
   /* Action tooltips */
   .action-btn {
     position: relative;
@@ -598,7 +676,7 @@
 
 <div class="header">
   <h1>Milestone Simulator</h1>
-  <p>Perform user actions on the left. Watch feature scores update in real-time on the right. When a feature score crosses 10, a milestone nudge fires — if guardrails allow it.</p>
+  <p>Perform user actions on the left. Watch feature scores update in real-time on the right. When a feature score crosses 14, a milestone nudge fires — if guardrails allow it.</p>
 </div>
 
 <div class="layout">
@@ -627,7 +705,7 @@
     </div>
 
     <div class="panel">
-      <div class="panel-title">Feature Scores (threshold: 10)</div>
+      <div class="panel-title">Feature Scores (threshold: 14)</div>
       <table class="matrix-table">
         <thead>
           <tr>
@@ -651,6 +729,11 @@
       <div class="nudge-preview-empty">No milestone triggered yet. Perform actions to build up feature scores.</div>
     </div>
   </div>
+</div>
+
+<!-- Nudge Modal Overlay -->
+<div class="nudge-overlay" id="nudge-overlay" onclick="if(event.target===this)closeNudgeModal()">
+  <div class="nudge-modal" id="nudge-modal"></div>
 </div>
 
 <div class="milestone-feed" id="milestone-feed">
@@ -690,12 +773,12 @@ const AUDIENCES = {
 };
 
 const TOPICS = {
-  Founder: ['Series A pitch for fintech startup', 'Seed round deck for healthtech', 'Product demo for enterprise AI tool'],
-  Sales: ['Enterprise SaaS proposal for Fortune 500', 'Partnership pitch to retail chain', 'ROI case study for CFO'],
-  Corporate: ['Q1 business review', 'Product roadmap for H2', 'Team restructuring proposal', 'OKR review and planning'],
-  Creative: ['Design portfolio for senior role', 'Agency credentials deck', 'Brand identity presentation'],
-  Educator: ['Introduction to machine learning', 'Data visualization workshop', 'Research methodology lecture'],
-  Student: ['Final thesis defense', 'Startup pitch for entrepreneurship class', 'Capstone project presentation']
+  Founder: ['Series A pitch for fintech startup', 'Seed round deck for healthtech', 'Product demo for enterprise AI tool', 'pitch deck', 'startup stuff', 'investor meeting tomorrow need a deck'],
+  Sales: ['Enterprise SaaS proposal for Fortune 500', 'Partnership pitch to retail chain', 'ROI case study for CFO', 'sales presentation', 'deck for client meeting', 'urgent proposal for client demo Friday'],
+  Corporate: ['Q1 business review', 'Product roadmap for H2', 'Team restructuring proposal', 'OKR review and planning', 'slides for meeting', 'quarterly update slides', 'board deck due end of day'],
+  Creative: ['Design portfolio for senior role', 'Agency credentials deck', 'Brand identity presentation', 'portfolio presentation', 'make a presentation', 'client pitch deck needed by tonight'],
+  Educator: ['Introduction to machine learning', 'Data visualization workshop', 'Research methodology lecture', 'lecture slides', 'guest lecture tomorrow on AI ethics'],
+  Student: ['Final thesis defense', 'Startup pitch for entrepreneurship class', 'Capstone project presentation', 'presentation for class', 'help me with a ppt', 'group project due tomorrow']
 };
 
 // ── PROMPT SYNTHESIS (simulates LLM-extracted feature relevance per topic) ──
@@ -752,6 +835,63 @@ const PROMPT_SYNTHESIS = {
     { 'unbranded': 3, 'ai-models': 3, 'export': 3, 'brand-kit': 3, 'invite-collab': 3, 'gen-speed': 2, 'analytics': 2, 'pres-refresh': 1 },
   'Capstone project presentation':
     { 'export': 4, 'ai-models': 4, 'invite-collab': 3, 'unbranded': 3, 'gen-speed': 3, 'brand-kit': 2, 'analytics': 1, 'pres-refresh': 1 },
+
+  // ── Weak / vague prompts — low signal, LLM can't extract much ──
+
+  // "pitch deck" — knows it's a pitch but nothing about audience, stakes, or domain
+  'pitch deck':
+    { 'unbranded': 2, 'export': 2, 'ai-models': 1, 'brand-kit': 1, 'analytics': 1, 'gen-speed': 1, 'invite-collab': 0, 'pres-refresh': 0 },
+  // "startup stuff" — vaguest possible founder prompt
+  'startup stuff':
+    { 'ai-models': 1, 'gen-speed': 1, 'unbranded': 1, 'export': 1, 'brand-kit': 0, 'analytics': 0, 'invite-collab': 0, 'pres-refresh': 0 },
+  // "sales presentation" — knows it's sales, but no audience/deal context
+  'sales presentation':
+    { 'unbranded': 2, 'export': 2, 'analytics': 1, 'ai-models': 1, 'brand-kit': 1, 'gen-speed': 1, 'invite-collab': 0, 'pres-refresh': 0 },
+  // "deck for client meeting" — audience hint (client) but nothing specific
+  'deck for client meeting':
+    { 'unbranded': 2, 'export': 2, 'brand-kit': 1, 'analytics': 1, 'ai-models': 1, 'gen-speed': 1, 'invite-collab': 1, 'pres-refresh': 0 },
+  // "slides for meeting" — internal, minimal info
+  'slides for meeting':
+    { 'gen-speed': 2, 'ai-models': 1, 'export': 1, 'invite-collab': 1, 'pres-refresh': 1, 'unbranded': 0, 'brand-kit': 0, 'analytics': 0 },
+  // "quarterly update slides" — knows it's recurring/internal, some signal
+  'quarterly update slides':
+    { 'pres-refresh': 3, 'gen-speed': 2, 'invite-collab': 2, 'ai-models': 1, 'export': 1, 'brand-kit': 1, 'unbranded': 0, 'analytics': 0 },
+  // "portfolio presentation" — knows it's a portfolio but no role/audience
+  'portfolio presentation':
+    { 'brand-kit': 2, 'unbranded': 2, 'export': 2, 'ai-models': 1, 'analytics': 1, 'gen-speed': 1, 'invite-collab': 0, 'pres-refresh': 0 },
+  // "make a presentation" — zero useful signal, completely generic
+  'make a presentation':
+    { 'ai-models': 1, 'gen-speed': 1, 'export': 1, 'unbranded': 0, 'brand-kit': 0, 'analytics': 0, 'invite-collab': 0, 'pres-refresh': 0 },
+  // "lecture slides" — knows it's educational but no topic/level
+  'lecture slides':
+    { 'export': 2, 'pres-refresh': 2, 'gen-speed': 1, 'ai-models': 1, 'unbranded': 1, 'invite-collab': 0, 'brand-kit': 0, 'analytics': 0 },
+  // "presentation for class" — student context, nothing specific
+  'presentation for class':
+    { 'export': 2, 'ai-models': 1, 'gen-speed': 1, 'unbranded': 1, 'invite-collab': 1, 'brand-kit': 0, 'analytics': 0, 'pres-refresh': 0 },
+  // "help me with a ppt" — laziest possible prompt, nearly zero signal
+  'help me with a ppt':
+    { 'ai-models': 1, 'gen-speed': 1, 'export': 0, 'unbranded': 0, 'brand-kit': 0, 'analytics': 0, 'invite-collab': 0, 'pres-refresh': 0 },
+
+  // ── Urgent prompts — time pressure boosts gen-speed, export, ai-models ──
+
+  // "investor meeting tomorrow need a deck" — high stakes + urgent
+  'investor meeting tomorrow need a deck':
+    { 'gen-speed': 5, 'ai-models': 5, 'export': 5, 'unbranded': 4, 'analytics': 3, 'brand-kit': 2, 'invite-collab': 1, 'pres-refresh': 0 },
+  // "urgent proposal for client demo Friday" — sales + deadline
+  'urgent proposal for client demo Friday':
+    { 'gen-speed': 5, 'export': 5, 'ai-models': 4, 'unbranded': 4, 'analytics': 3, 'brand-kit': 3, 'invite-collab': 2, 'pres-refresh': 0 },
+  // "board deck due end of day" — high stakes internal + extreme urgency
+  'board deck due end of day':
+    { 'gen-speed': 5, 'ai-models': 5, 'export': 4, 'unbranded': 3, 'invite-collab': 3, 'brand-kit': 2, 'analytics': 2, 'pres-refresh': 0 },
+  // "client pitch deck needed by tonight" — creative + deadline
+  'client pitch deck needed by tonight':
+    { 'gen-speed': 5, 'ai-models': 4, 'export': 4, 'unbranded': 4, 'brand-kit': 4, 'analytics': 2, 'invite-collab': 1, 'pres-refresh': 0 },
+  // "guest lecture tomorrow on AI ethics" — educational + next-day deadline
+  'guest lecture tomorrow on AI ethics':
+    { 'gen-speed': 4, 'export': 4, 'ai-models': 4, 'pres-refresh': 3, 'unbranded': 2, 'invite-collab': 1, 'brand-kit': 1, 'analytics': 0 },
+  // "group project due tomorrow" — student + deadline + collaborative
+  'group project due tomorrow':
+    { 'gen-speed': 4, 'export': 4, 'ai-models': 3, 'invite-collab': 4, 'unbranded': 2, 'brand-kit': 1, 'analytics': 0, 'pres-refresh': 0 },
 };
 
 const FEATURES = [
@@ -831,16 +971,60 @@ function generateUser() {
   const boughtExport = pick([false, false, false, false, true]);
   const dismissals = pick([0, 0, 0, 1, 2]);
 
+  // ── Deck history ──
+  // Correlate with session number: returning users have more history
+  const DECK_HISTORY = {
+    1: { completed: pick([1, 1, 1, 2]), shared: pick([0, 0, 0, 1]), published: pick([0, 0, 0]) },
+    2: { completed: pick([2, 3, 4, 5]), shared: pick([0, 1, 1, 2]), published: pick([0, 0, 1]) },
+    3: { completed: pick([3, 5, 7, 10]), shared: pick([1, 2, 3, 4]), published: pick([0, 1, 2, 3]) },
+  };
+  const deckHistory = DECK_HISTORY[Math.min(sessionNum, 3)];
+
+  // Company domain — personal emails are more common
+  const COMPANY_DOMAINS = {
+    Founder: ['@startup.io', '@startup.io', '@gmail.com'],
+    Sales: ['@salesforce.com', '@hubspot.com', '@company.com', '@gmail.com'],
+    Corporate: ['@deloitte.com', '@jpmorgan.com', '@company.com', '@gmail.com'],
+    Creative: ['@agency.co', '@studio.design', '@gmail.com', '@gmail.com'],
+    Educator: ['@stanford.edu', '@university.edu', '@gmail.com'],
+    Student: ['@university.edu', '@gmail.com', '@gmail.com', '@gmail.com'],
+  };
+  const email = pick(COMPANY_DOMAINS[arch] || COMPANY_DOMAINS['Corporate']);
+  const isCompanyDomain = !/@gmail\.com|@outlook\.com|@yahoo\.com|@hotmail\.com/.test(email);
+
+  // ── Country / Tier ──
+  // Tier 1: high purchasing power. Tier 2: price-sensitive markets.
+  const TIER_1 = ['US', 'UK', 'Canada', 'Australia', 'Germany', 'France', 'Netherlands', 'Sweden', 'Switzerland', 'Japan', 'Singapore'];
+  const TIER_2 = ['India', 'Brazil', 'Indonesia', 'Philippines', 'Mexico', 'Nigeria', 'Vietnam', 'Colombia', 'Egypt', 'Bangladesh', 'Pakistan', 'Kenya'];
+  // Distribution: ~40% Tier 1, ~60% Tier 2 (reflects global free-user base)
+  const allCountries = [...TIER_1, ...TIER_2, ...TIER_2];
+  const country = pick(allCountries);
+  const countryTier = TIER_1.includes(country) ? 1 : 2;
+
+  // ── Acquisition channel ──
+  // ~50% organic, ~30% paid ad, ~20% referral
+  const acqChannel = pick(['organic', 'organic', 'organic', 'organic', 'organic',
+                           'paid', 'paid', 'paid',
+                           'referral', 'referral']);
+
   user = {
     name: pick(['Raj', 'Maria', 'Alex', 'Priya', 'James', 'Sofia', 'Chen', 'Fatima', 'David', 'Anya']),
     role: role.label,
     archetype: arch,
     audience: pick(AUDIENCES[arch] || AUDIENCES['Corporate']),
     topic: pick(TOPICS[arch] || TOPICS['Corporate']),
+    email,
+    isCompanyDomain,
+    country,
+    countryTier,
     credits,
     sessionNum,
     boughtExport,
     dismissals,
+    decksCompleted: deckHistory.completed,
+    decksShared: deckHistory.shared,
+    decksPublished: deckHistory.published,
+    acqChannel,
   };
 
   // Set initial signals from user context
@@ -881,6 +1065,17 @@ function generateUser() {
   if (user.sessionNum > 1) activeSignals.add('returning-user');
   if (user.boughtExport) activeSignals.add('bought-export');
   if (user.dismissals === 0) activeSignals.add('zero-dismissals');
+  if (user.isCompanyDomain) activeSignals.add('company-domain');
+  if (user.countryTier === 1) activeSignals.add('tier-1-country');
+
+  // Deck history signals
+  if (user.decksCompleted >= 5) activeSignals.add('deck-veteran');
+  if (user.decksShared >= 2) activeSignals.add('deck-sharer');
+  if (user.decksPublished >= 1) activeSignals.add('deck-publisher');
+
+  // Acquisition channel signals
+  if (user.acqChannel === 'paid') activeSignals.add('acq-paid');
+  if (user.acqChannel === 'referral') activeSignals.add('acq-referral');
 
   return user;
 }
@@ -949,6 +1144,15 @@ const DIRECT_MAP = {
   'bought-export':      { 'export': 4 },
   'multi-deck':         { 'brand-kit': 3, 'pres-refresh': 3 },
 
+  // Deck history signals
+  'deck-veteran':       { 'brand-kit': 3, 'pres-refresh': 3, 'gen-speed': 2 },
+  'deck-sharer':        { 'analytics': 3, 'unbranded': 2, 'invite-collab': 2 },
+  'deck-publisher':     { 'analytics': 2, 'unbranded': 3 },
+
+  // Acquisition channel signals
+  'acq-paid':           { 'gen-speed': 2, 'export': 2 },
+  'acq-referral':       { 'invite-collab': 3 },
+
   'pricing-visit':      {},  // universal only
 };
 
@@ -964,9 +1168,14 @@ const UNIVERSAL_MAP = {
   'zero-dismissals': 1,
   'gate-hit': 3,
   'export-attempt': 2,
+  'company-domain': 2,
+  'tier-1-country': 2,
+  'deck-veteran': 3,
+  'acq-paid': 2,
+  'acq-referral': 3,
 };
 
-const THRESHOLD = 10;
+const THRESHOLD = 14;
 const MAX_SCORE = 30; // for bar visualization
 
 function calculateScores() {
@@ -1089,70 +1298,99 @@ function fireMilestone(feature) {
   renderGuardrails();
 }
 
-function renderNudgePreview(feature, copy) {
-  const u = user;
-  const preview = document.getElementById('nudge-preview');
-
-  // Build signal breakdown
-  const m = milestoneLog[0];
-  let breakdownHTML = '';
-
-  breakdownHTML += '<div class="breakdown-section-label">Direct signals</div>';
+function buildBreakdownHTML(m) {
+  let html = '';
+  html += '<div class="breakdown-section-label">Direct signals</div>';
   if (m.directSignals.length > 0) {
-    breakdownHTML += m.directSignals.map(s =>
+    html += m.directSignals.map(s =>
       '<div class="breakdown-row"><span class="breakdown-signal">' + s.name.replace(/-/g, ' ') + '</span><span class="breakdown-weight direct">+' + s.weight + '</span></div>'
     ).join('');
   } else {
-    breakdownHTML += '<div class="breakdown-row"><span class="breakdown-signal" style="opacity:0.4">None</span><span class="breakdown-weight">0</span></div>';
+    html += '<div class="breakdown-row"><span class="breakdown-signal" style="opacity:0.4">None</span><span class="breakdown-weight">0</span></div>';
   }
-
-  breakdownHTML += '<div class="breakdown-section-label">Universal signals (x0.4)</div>';
+  html += '<div class="breakdown-section-label">Universal signals (x0.4)</div>';
   if (m.universalSignals.length > 0) {
-    breakdownHTML += m.universalSignals.map(s =>
+    html += m.universalSignals.map(s =>
       '<div class="breakdown-row"><span class="breakdown-signal">' + s.name.replace(/-/g, ' ') + '</span><span class="breakdown-weight universal">+' + s.weight + ' \u2192 ' + (s.weight * 0.4).toFixed(1) + '</span></div>'
     ).join('');
   } else {
-    breakdownHTML += '<div class="breakdown-row"><span class="breakdown-signal" style="opacity:0.4">None</span><span class="breakdown-weight">0</span></div>';
+    html += '<div class="breakdown-row"><span class="breakdown-signal" style="opacity:0.4">None</span><span class="breakdown-weight">0</span></div>';
   }
+  html += '<div class="breakdown-total-row"><span>Total Score</span><span class="breakdown-total-score">' + m.score + '</span></div>';
+  return html;
+}
 
-  breakdownHTML += '<div class="breakdown-total-row"><span>Total Score</span><span class="breakdown-total-score">' + m.score + '</span></div>';
-
-  preview.innerHTML =
-    '<div class="nudge-preview-container">' +
-
-      // The nudge UI
-      '<div class="nudge-ui">' +
-        '<div class="nudge-ui-header">' +
-          '<div class="nudge-ui-icon">' + feature.icon + '</div>' +
-          '<div class="nudge-ui-tag">Milestone</div>' +
-        '</div>' +
-        '<div class="nudge-ui-body">' +
-          '<div class="nudge-ui-title">' + copy.title + '</div>' +
-          '<div class="nudge-ui-desc">' + copy.body + '</div>' +
-          '<div class="nudge-ui-actions">' +
-            '<button class="nudge-ui-cta">Upgrade to Pro</button>' +
-            '<button class="nudge-ui-dismiss">Not now</button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="nudge-ui-footer">' +
-          '<span class="nudge-ui-pro-badge">PRO</span>' +
-          '<span class="nudge-ui-feature-label">' + feature.name + '</span>' +
-        '</div>' +
+function buildNudgeCardHTML(feature, copy) {
+  return '<div class="nudge-ui">' +
+    '<div class="nudge-ui-header">' +
+      '<div class="nudge-ui-icon">' + feature.icon + '</div>' +
+      '<div class="nudge-ui-tag">Milestone</div>' +
+    '</div>' +
+    '<div class="nudge-ui-body">' +
+      '<div class="nudge-ui-title">' + copy.title + '</div>' +
+      '<div class="nudge-ui-desc">' + copy.body + '</div>' +
+      '<div class="nudge-ui-actions">' +
+        '<button class="nudge-ui-cta">Upgrade to Pro</button>' +
+        '<button class="nudge-ui-dismiss">Not now</button>' +
       '</div>' +
+    '</div>' +
+    '<div class="nudge-ui-footer">' +
+      '<span class="nudge-ui-pro-badge">PRO</span>' +
+      '<span class="nudge-ui-feature-label">' + feature.name + '</span>' +
+    '</div>' +
+  '</div>';
+}
 
-      // Score breakdown
+function buildContextHTML(u) {
+  return '<div class="breakdown-section-label" style="margin-top:18px">User context</div>' +
+    '<div class="breakdown-row"><span class="breakdown-signal">User</span><span style="font-size:12px;color:var(--text)">' + u.name + ' \u2014 ' + u.role + '</span></div>' +
+    '<div class="breakdown-row"><span class="breakdown-signal">Audience</span><span style="font-size:12px;color:var(--text)">' + u.audience + '</span></div>' +
+    '<div class="breakdown-row"><span class="breakdown-signal">Topic</span><span style="font-size:12px;color:var(--text)">' + u.topic + '</span></div>' +
+    '<div class="breakdown-row"><span class="breakdown-signal">Credits</span><span style="font-size:12px;color:var(--text)">' + u.credits + ' / 100</span></div>' +
+    '<div class="breakdown-row"><span class="breakdown-signal">Session</span><span style="font-size:12px;color:var(--text)">' + u.sessionNum + '</span></div>';
+}
+
+function renderNudgePreview(feature, copy) {
+  const u = user;
+  const m = milestoneLog[0];
+  const breakdownHTML = buildBreakdownHTML(m);
+
+  // Update inline preview (below the matrix)
+  document.getElementById('nudge-preview').innerHTML =
+    '<div class="nudge-preview-container">' +
+      buildNudgeCardHTML(feature, copy) +
       '<div class="nudge-breakdown">' +
         '<div class="breakdown-title">Why this nudge fired</div>' +
         breakdownHTML +
-        '<div class="breakdown-section-label" style="margin-top:18px">User context</div>' +
-        '<div class="breakdown-row"><span class="breakdown-signal">User</span><span style="font-size:12px;color:var(--text)">' + u.name + ' \u2014 ' + u.role + '</span></div>' +
-        '<div class="breakdown-row"><span class="breakdown-signal">Audience</span><span style="font-size:12px;color:var(--text)">' + u.audience + '</span></div>' +
-        '<div class="breakdown-row"><span class="breakdown-signal">Topic</span><span style="font-size:12px;color:var(--text)">' + u.topic + '</span></div>' +
-        '<div class="breakdown-row"><span class="breakdown-signal">Credits</span><span style="font-size:12px;color:var(--text)">' + u.credits + ' / 100</span></div>' +
-        '<div class="breakdown-row"><span class="breakdown-signal">Session</span><span style="font-size:12px;color:var(--text)">' + u.sessionNum + '</span></div>' +
+        buildContextHTML(u) +
       '</div>' +
-
     '</div>';
+
+  // Show modal overlay
+  const modal = document.getElementById('nudge-modal');
+  modal.innerHTML =
+    buildNudgeCardHTML(feature, copy) +
+    '<div class="nudge-breakdown">' +
+      '<div class="breakdown-title">Why this nudge fired</div>' +
+      breakdownHTML +
+      buildContextHTML(u) +
+      '<div class="nudge-modal-controls">' +
+        '<button class="nudge-modal-close" onclick="closeNudgeModal()">Dismiss</button>' +
+        '<button class="nudge-modal-skip-cooldown" onclick="skipCooldown()">Skip Cooldown</button>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('nudge-overlay').classList.add('active');
+}
+
+function closeNudgeModal() {
+  document.getElementById('nudge-overlay').classList.remove('active');
+}
+
+function skipCooldown() {
+  lastMilestoneTime = 0;
+  closeNudgeModal();
+  renderGuardrails();
 }
 
 // ── COPY GENERATION (uses the dynamic engine concept) ──
@@ -1198,7 +1436,36 @@ function generateMilestoneCopy(f) {
     },
   };
 
-  return copies[f.id] || { title: f.verb, body: f.does + '.' };
+  const base = copies[f.id] || { title: f.verb, body: f.does + '.' };
+
+  // ── Copy modifier: Tier 2 → value-focused, Tier 1 → quality-focused ──
+  if (u.countryTier === 2) {
+    const valueAppend = {
+      'ai-models': ' Save hours of manual editing.',
+      'brand-kit': ' Set it once, reuse across every deck — no redesign work.',
+      'unbranded': ' Look established without hiring a designer.',
+      'export': ' Send it anywhere — no workarounds needed.',
+      'invite-collab': ' Get feedback in one place instead of email chains.',
+      'analytics': ' Know exactly who engaged — no guessing.',
+      'gen-speed': ' Get your deck ready in minutes, not hours.',
+      'pres-refresh': ' Update your deck without rebuilding from zero.',
+    };
+    if (valueAppend[f.id]) base.body = base.body + valueAppend[f.id];
+  } else {
+    const qualityAppend = {
+      'ai-models': ' Enterprise-grade AI for polished, boardroom-ready output.',
+      'brand-kit': ' Pixel-perfect brand consistency across your entire library.',
+      'unbranded': ' Clean, professional finish that matches your brand standards.',
+      'export': ' Presentation-ready files that look exactly as designed.',
+      'invite-collab': ' Streamlined review workflow for your team.',
+      'analytics': ' Detailed engagement insights for data-driven follow-ups.',
+      'gen-speed': ' Priority generation so your workflow stays uninterrupted.',
+      'pres-refresh': ' AI-powered content refresh with structure preserved.',
+    };
+    if (qualityAppend[f.id]) base.body = base.body + qualityAppend[f.id];
+  }
+
+  return base;
 }
 
 // ── RENDERING ──
@@ -1206,12 +1473,16 @@ function renderUserContext() {
   const u = user;
   const rows = [
     ['Name', u.name],
+    ['Email', u.name.toLowerCase() + u.email, u.isCompanyDomain],
+    ['Country', u.country + ' (Tier ' + u.countryTier + ')', u.countryTier === 1],
     ['Role', u.role],
     ['Archetype', u.archetype, true],
     ['Audience', u.audience],
     ['Topic', u.topic],
     ['Credits', u.credits + ' / 100'],
     ['Session', u.sessionNum === 1 ? '1st visit' : 'Session ' + u.sessionNum],
+    ['Deck history', u.decksCompleted + ' made · ' + u.decksShared + ' shared · ' + u.decksPublished + ' published', u.decksCompleted >= 5],
+    ['Acquisition', u.acqChannel === 'paid' ? 'Paid ad' : u.acqChannel === 'referral' ? 'Referral' : 'Organic', u.acqChannel !== 'organic'],
     ['Bought export', u.boughtExport ? 'Yes ($4.99)' : 'No'],
     ['Past dismissals', u.dismissals],
   ];
@@ -1384,6 +1655,15 @@ function renderSignals() {
     { id: 'pricing-visit', label: 'Visited pricing', type: 'universal' },
     { id: 'bought-export', label: 'Bought single export', type: 'both' },
     { id: 'zero-dismissals', label: '0 dismissals', type: 'universal' },
+    { id: 'company-domain', label: 'Company email domain', type: 'universal' },
+    { id: 'tier-1-country', label: 'Tier 1 country', type: 'universal' },
+    // Deck history
+    { id: 'deck-veteran', label: '5+ decks completed', type: 'both' },
+    { id: 'deck-sharer', label: '2+ decks shared', type: 'direct' },
+    { id: 'deck-publisher', label: '1+ deck published', type: 'direct' },
+    // Acquisition channel
+    { id: 'acq-paid', label: 'Paid ad traffic', type: 'both' },
+    { id: 'acq-referral', label: 'Referral traffic', type: 'both' },
   ];
 
   const list = document.getElementById('signal-list');
