@@ -698,6 +698,62 @@ const TOPICS = {
   Student: ['Final thesis defense', 'Startup pitch for entrepreneurship class', 'Capstone project presentation']
 };
 
+// ── PROMPT SYNTHESIS (simulates LLM-extracted feature relevance per topic) ──
+// In production, the LLM reads the user's prompt and outputs per-feature relevance.
+// Here we pre-compute what the LLM would return for each topic in our pool.
+// Scale: 0 = irrelevant, 1 = weak, 2 = some, 3 = moderate, 4 = strong, 5 = very strong
+const PROMPT_SYNTHESIS = {
+  // Founder topics — raising money, high-profile audiences
+  'Series A pitch for fintech startup':
+    { 'unbranded': 5, 'analytics': 4, 'export': 4, 'brand-kit': 4, 'ai-models': 3, 'invite-collab': 3, 'gen-speed': 2, 'pres-refresh': 1 },
+  'Seed round deck for healthtech':
+    { 'unbranded': 5, 'analytics': 4, 'export': 4, 'brand-kit': 3, 'ai-models': 3, 'invite-collab': 3, 'gen-speed': 2, 'pres-refresh': 2 },
+  'Product demo for enterprise AI tool':
+    { 'brand-kit': 4, 'unbranded': 4, 'ai-models': 4, 'analytics': 3, 'export': 3, 'invite-collab': 2, 'gen-speed': 2, 'pres-refresh': 1 },
+
+  // Sales topics — deals, proposals, persuasion
+  'Enterprise SaaS proposal for Fortune 500':
+    { 'analytics': 5, 'unbranded': 5, 'export': 4, 'brand-kit': 4, 'ai-models': 3, 'invite-collab': 3, 'gen-speed': 2, 'pres-refresh': 1 },
+  'Partnership pitch to retail chain':
+    { 'unbranded': 4, 'analytics': 4, 'export': 4, 'brand-kit': 3, 'ai-models': 3, 'invite-collab': 2, 'gen-speed': 2, 'pres-refresh': 1 },
+  'ROI case study for CFO':
+    { 'ai-models': 4, 'analytics': 4, 'export': 4, 'unbranded': 4, 'brand-kit': 2, 'invite-collab': 2, 'gen-speed': 1, 'pres-refresh': 1 },
+
+  // Corporate topics — internal, recurring, collaborative
+  'Q1 business review':
+    { 'pres-refresh': 4, 'gen-speed': 4, 'invite-collab': 3, 'ai-models': 3, 'export': 2, 'brand-kit': 2, 'unbranded': 1, 'analytics': 1 },
+  'Product roadmap for H2':
+    { 'invite-collab': 4, 'pres-refresh': 3, 'gen-speed': 3, 'ai-models': 3, 'export': 2, 'brand-kit': 1, 'unbranded': 1, 'analytics': 1 },
+  'Team restructuring proposal':
+    { 'ai-models': 4, 'invite-collab': 3, 'export': 3, 'analytics': 2, 'gen-speed': 2, 'unbranded': 2, 'brand-kit': 1, 'pres-refresh': 1 },
+  'OKR review and planning':
+    { 'pres-refresh': 4, 'invite-collab': 4, 'gen-speed': 3, 'ai-models': 3, 'export': 2, 'analytics': 2, 'brand-kit': 1, 'unbranded': 1 },
+
+  // Creative topics — portfolio, brand, showcase
+  'Design portfolio for senior role':
+    { 'brand-kit': 5, 'unbranded': 5, 'export': 4, 'ai-models': 3, 'analytics': 3, 'pres-refresh': 2, 'gen-speed': 1, 'invite-collab': 1 },
+  'Agency credentials deck':
+    { 'brand-kit': 5, 'unbranded': 5, 'analytics': 4, 'export': 4, 'invite-collab': 3, 'pres-refresh': 3, 'ai-models': 3, 'gen-speed': 1 },
+  'Brand identity presentation':
+    { 'brand-kit': 5, 'unbranded': 4, 'export': 3, 'ai-models': 3, 'analytics': 2, 'invite-collab': 2, 'pres-refresh': 2, 'gen-speed': 1 },
+
+  // Educator topics — teaching, downloadable, reusable
+  'Introduction to machine learning':
+    { 'export': 4, 'ai-models': 4, 'pres-refresh': 4, 'gen-speed': 3, 'unbranded': 2, 'invite-collab': 1, 'brand-kit': 1, 'analytics': 1 },
+  'Data visualization workshop':
+    { 'ai-models': 4, 'export': 4, 'pres-refresh': 3, 'gen-speed': 3, 'unbranded': 2, 'invite-collab': 2, 'brand-kit': 1, 'analytics': 1 },
+  'Research methodology lecture':
+    { 'export': 4, 'pres-refresh': 4, 'ai-models': 3, 'gen-speed': 3, 'unbranded': 2, 'invite-collab': 1, 'brand-kit': 1, 'analytics': 1 },
+
+  // Student topics — deadlines, group work, first impressions
+  'Final thesis defense':
+    { 'export': 5, 'ai-models': 4, 'unbranded': 4, 'gen-speed': 3, 'invite-collab': 2, 'brand-kit': 2, 'analytics': 1, 'pres-refresh': 1 },
+  'Startup pitch for entrepreneurship class':
+    { 'unbranded': 3, 'ai-models': 3, 'export': 3, 'brand-kit': 3, 'invite-collab': 3, 'gen-speed': 2, 'analytics': 2, 'pres-refresh': 1 },
+  'Capstone project presentation':
+    { 'export': 4, 'ai-models': 4, 'invite-collab': 3, 'unbranded': 3, 'gen-speed': 3, 'brand-kit': 2, 'analytics': 1, 'pres-refresh': 1 },
+};
+
 const FEATURES = [
   { id: 'ai-models', name: 'Better AI Models', icon: '🧠', verb: 'Upgrade to a better AI model', does: 'uses Standard or Advanced AI models for higher quality slides and smarter content', result: 'sharper, more polished output' },
   { id: 'brand-kit', name: 'Brand Kit', icon: '🎨', verb: 'Set up your Brand Kit', does: 'applies your custom brand colors and fonts across all slides', result: 'a deck that looks like your brand' },
@@ -809,13 +865,15 @@ function generateUser() {
   else if (lowStakes.includes(user.audience)) activeSignals.add('stakes-low-external');
   else activeSignals.add('stakes-internal');
 
-  // ── LAYER 3: Topic purpose ──
-  if (/pitch|proposal|case study/i.test(user.topic)) activeSignals.add('purpose-persuade');
-  else if (/quarterly|review|KPI|roadmap|OKR|restructur/i.test(user.topic)) activeSignals.add('purpose-report');
-  else if (/introduction|workshop|lecture|methodology/i.test(user.topic)) activeSignals.add('purpose-educate');
-  else if (/portfolio|credentials|brand identity|demo/i.test(user.topic)) activeSignals.add('purpose-showcase');
-  else if (/thesis|capstone/i.test(user.topic)) activeSignals.add('purpose-defend');
-  else activeSignals.add('purpose-persuade'); // fallback
+  // ── LAYER 3: Prompt synthesis (simulated LLM output) ──
+  // In production, LLM analyzes the raw prompt and returns per-feature relevance.
+  // Here we look up pre-computed synthesis for each topic.
+  const synthesis = PROMPT_SYNTHESIS[user.topic];
+  if (synthesis) {
+    user.promptSynthesis = synthesis;
+    DIRECT_MAP['prompt-synthesis'] = synthesis;
+    activeSignals.add('prompt-synthesis');
+  }
 
   // State signals
   if (user.credits < 30) activeSignals.add('credits-low');
@@ -884,12 +942,8 @@ const DIRECT_MAP = {
   'stakes-low-external':   { 'unbranded': 2, 'brand-kit': 1 },
   'stakes-internal':       { 'gen-speed': 2, 'ai-models': 2, 'invite-collab': 2 },
 
-  // ── Layer 3: Topic purpose signals ──
-  'purpose-persuade':      { 'unbranded': 2, 'export': 3, 'analytics': 3 },
-  'purpose-report':        { 'ai-models': 3, 'gen-speed': 2, 'analytics': 2 },
-  'purpose-educate':       { 'export': 3, 'gen-speed': 2 },
-  'purpose-showcase':      { 'brand-kit': 3, 'unbranded': 2 },
-  'purpose-defend':        { 'export': 3, 'unbranded': 2 },
+  // ── Layer 3: Prompt synthesis (dynamically set per user in generateUser) ──
+  'prompt-synthesis':      {}, // populated at runtime from PROMPT_SYNTHESIS lookup
 
   // Context signals
   'bought-export':      { 'export': 4 },
@@ -1321,12 +1375,8 @@ function renderSignals() {
     { id: 'stakes-high-external', label: 'Stakes: High External', type: 'direct' },
     { id: 'stakes-low-external', label: 'Stakes: Low External', type: 'direct' },
     { id: 'stakes-internal', label: 'Stakes: Internal', type: 'direct' },
-    // Layer 3: Topic purpose
-    { id: 'purpose-persuade', label: 'Purpose: Persuade', type: 'direct' },
-    { id: 'purpose-report', label: 'Purpose: Report', type: 'direct' },
-    { id: 'purpose-educate', label: 'Purpose: Educate', type: 'direct' },
-    { id: 'purpose-showcase', label: 'Purpose: Showcase', type: 'direct' },
-    { id: 'purpose-defend', label: 'Purpose: Defend', type: 'direct' },
+    // Layer 3: Prompt synthesis
+    { id: 'prompt-synthesis', label: 'Prompt Synthesis (LLM)', type: 'direct' },
     // Universal
     { id: 'credits-low', label: 'Credits < 30', type: 'universal' },
     { id: 'credits-zero', label: 'Credits = 0', type: 'universal' },
